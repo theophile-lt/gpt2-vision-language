@@ -1,4 +1,3 @@
-
 # gpt2-vision-language
 
 ## Introduction
@@ -31,8 +30,10 @@ Enjoyed a lot and we learned a lot…
 - Used **FlashAttention**, **mixed precision**, and **gradient accumulation** (GPT-3-style effective batch size).  
 - Reached **≈31% accuracy on HellaSwag** after ~2 days of training on a single GPU.
 
-![HellaSwag Example](images/Hellaswag.png)  
-![HellaSwag Accuracy](images/hellaswag_acc.png)
+<p align="center">
+  <img src="images/Hellaswag.png" width="45%" />
+  <img src="images/hellaswag_acc.png" width="45%" />
+</p>
 
 ### **Image captioning (COCO 2017)**
 - Imported a **frozen CLIP ViT-L/14** encoder.  
@@ -53,14 +54,23 @@ Following Karpathy’s 10-lecture series, we reconstructed a 124M-parameter GPT-
 After two days of training on FineWeb-Edu (10B tokens), the model achieved 31% HellaSwag accuracy, exceeding the performance of the original GPT-2 small on WebText-1B (à confirmer).  
 
 ### Architecture  
-![GPT-2 Architecture](images/GPT-2.png)  
-![FlashAttention Diagram](images/FlashAttn.png)
+
+<p align="center">
+  <img src="images/GPT-2.png" width="45%" />
+  <img src="images/FlashAttn.png" width="45%" />
+</p>
 
 ### Training curves  
-![Validation Loss](images/val_loss.png)
+
+<p align="center">
+  <img src="images/val_loss.png" width="60%" />
+</p>
 
 ### Sample generations  
-![GPT-2 Generations](images/Generation.png)
+
+<p align="center">
+  <img src="images/Generation.png" width="60%" />
+</p>
 
 ---
 
@@ -79,10 +89,16 @@ We then trained three architectures on **COCO 2017** (118k train, 5k val, 5 capt
 A single learned linear layer maps the pooled CLIP visual tokens directly into the GPT-2 embedding space.
 
 - **Architecture:**  
-  ![Linear Model Architecture](images/grid_3x3_linearmodel.png)
+
+  <p align="center">
+    <img src="images/grid_3x3_linearmodel.png" width="60%" />
+  </p>
 
 - **Sample captions:**  
-  ![Linear Model Captions](images/grid_3x3.png)
+
+  <p align="center">
+    <img src="images/grid_3x3.png" width="60%" />
+  </p>
 
 ---
 
@@ -91,10 +107,16 @@ A single learned linear layer maps the pooled CLIP visual tokens directly into t
 Cross-attention layers are added inside the transformer blocks of the decoder, maintaining every parameters of other layers in the blocks frozen.
 
 - **Architecture:**  
-  ![Cross-Attention Architecture](images/grid_3x3_crossattn.png)
+
+  <p align="center">
+    <img src="images/grid_3x3_crossattn.png" width="60%" />
+  </p>
 
 - **Sample captions:**  
-  ![Cross-Attention Captions](images/grid_3x3.png)
+
+  <p align="center">
+    <img src="images/grid_3x3.png" width="60%" />
+  </p>
 
 ---
 
@@ -103,13 +125,22 @@ Cross-attention layers are added inside the transformer blocks of the decoder, m
 A set of learnable queries attends to frozen CLIP features, producing a compact set of multimodal embeddings projected into GPT-2’s embedding space.
 
 - **BLIP-2 reference:**  
-  ![BLIP-2 Figure](images/BLIP2.png)
+
+  <p align="center">
+    <img src="images/BLIP2.png" width="60%" />
+  </p>
 
 - **Architecture:**  
-  ![Q-Former Architecture](images/grid_3x3_BLIP.png)
+
+  <p align="center">
+    <img src="images/grid_3x3_BLIP.png" width="60%" />
+  </p>
 
 - **Sample captions:**  
-  ![Q-Former Captions](images/Generation_1.png)
+
+  <p align="center">
+    <img src="images/Generation_1.png" width="60%" />
+  </p>
 
 ---
 
@@ -118,19 +149,31 @@ A set of learnable queries attends to frozen CLIP features, producing a compact 
 A single epoch (~3 hours) with AdamW, cosine learning rate decay, and batch size adapted through gradient accumulation was sufficient for all three bridging models to converge to stable validation loss curves.
 
 ### **Validation loss comparison**  
-![Validation Loss Comparison](images/val_loss_comparison.png)
+
+<p align="center">
+  <img src="images/val_loss_comparison.png" width="60%" />
+</p>
 
 ### **Per-model validation curves**  
-![Cross-Attention Loss](images/val_loss_Cross-At.png)  
-![Linear Model Loss](images/val_loss_Linear_model.png)  
-![Q-Former Loss](images/val_loss_Q-Former.png)
+
+<p align="center">
+  <img src="images/val_loss_Cross-At.png" width="30%" />
+  <img src="images/val_loss_Linear_model.png" width="30%" />
+  <img src="images/val_loss_Q-Former.png" width="30%" />
+</p>
 
 ### **Captioning metrics (CIDEr, METEOR, etc.)**  
-![CIDEr Example](images/CIDER.png)  
-![COCO Example](images/coco_example.png)
+
+<p align="center">
+  <img src="images/CIDER.png" width="45%" />
+  <img src="images/coco_example.png" width="45%" />
+</p>
 
 ### **Additional figures**  
-![Five Senses](images/Five_senses.png)  
-![LLaVA](images/Llava.png)
+
+<p align="center">
+  <img src="images/Five_senses.png" width="45%" />
+  <img src="images/Llava.png" width="45%" />
+</p>
 
 ---
