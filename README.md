@@ -61,7 +61,7 @@ After two days of training on FineWeb-Edu (10B tokens), the model achieved 31% H
 ### Architecture  
 
 <p align="center">
-  <img src="images/GPT-2.png" width="45%" />
+  <img src="images/GPT-2.png" width="30%" />
 </p>
 
 
