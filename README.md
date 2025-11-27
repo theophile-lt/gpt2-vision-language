@@ -96,7 +96,7 @@ A single learned linear layer maps the pooled CLIP visual tokens directly into t
 - **Architecture:**  
 
   <p align="center">
-    <img src="images/linear_projection_architecture.png" width="60%" />
+    <img src="images/Linear_projection_architecture.png" width="60%" />
   </p>
 
 - **Sample captions:**  
@@ -120,7 +120,7 @@ Cross-attention layers are added inside the transformer blocks of the decoder, m
 - **Sample captions:**  
 
   <p align="center">
-    <img src="images/grid_3x3_cross_attn.png" width="60%" />
+    <img src="images/grid_3x3_crossattn.png" width="60%" />
   </p>
 
 ---
