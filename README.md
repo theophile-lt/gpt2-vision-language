@@ -1,5 +1,12 @@
 # gpt2-vision-language
 
+
+<p align="center">
+  <img src="images/Generation.png" width="100%" />
+</p>
+
+Ajouter en dessous, image de generation BLIP2, centrée, même taille que les autres images actuellement.
+
 ## Introduction
 
 We present in this repository an independent project that we developed in parallel with our IASD master coursework.
@@ -30,10 +37,6 @@ Enjoyed a lot and we learned a lot…
 - Used **FlashAttention**, **mixed precision**, and **gradient accumulation** (GPT-3-style effective batch size).  
 - Reached **≈31% accuracy on HellaSwag** after ~2 days of training on a single GPU.
 
-<p align="center">
-  <img src="images/Hellaswag.png" width="45%" />
-  <img src="images/hellaswag_acc.png" width="45%" />
-</p>
 
 ### **Image captioning (COCO 2017)**
 - Imported a **frozen CLIP ViT-L/14** encoder.  
@@ -55,21 +58,23 @@ After two days of training on FineWeb-Edu (10B tokens), the model achieved 31% H
 
 ### Architecture  
 
+Modifier : réduire la taille de l'architecture de 1/3
 <p align="center">
   <img src="images/GPT-2.png" width="45%" />
-  <img src="images/FlashAttn.png" width="45%" />
+  
 </p>
 
 ### Training curves  
 
 <p align="center">
-  <img src="images/val_loss.png" width="60%" />
+  <img src="images/vall_loss.png" width="45%" />
+  <img src="images/hellaswag_acc.png" width="45%" />
 </p>
 
 ### Sample generations  
 
 <p align="center">
-  <img src="images/Generation.png" width="60%" />
+  <img src="images/Generation.png" width="100%" />
 </p>
 
 ---
