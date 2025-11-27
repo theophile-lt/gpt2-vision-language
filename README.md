@@ -67,7 +67,7 @@ Modifier : réduire la taille de l'architecture de 1/3
 ### Training curves  
 
 <p align="center">
-  <img src="images/vall_loss.png" width="45%" />
+  <img src="images/val_loss.png" width="45%" />
   <img src="images/hellaswag_acc.png" width="45%" />
 </p>
 
