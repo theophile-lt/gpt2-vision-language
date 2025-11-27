@@ -96,13 +96,13 @@ A single learned linear layer maps the pooled CLIP visual tokens directly into t
 - **Architecture:**  
 
   <p align="center">
-    <img src="images/grid_3x3_linearmodel.png" width="60%" />
+    <img src="images/linear_projection_architecture.png" width="60%" />
   </p>
 
 - **Sample captions:**  
 
   <p align="center">
-    <img src="images/grid_3x3.png" width="60%" />
+    <img src="images/grid_3x3_linearmodel.png" width="60%" />
   </p>
 
 ---
@@ -114,13 +114,13 @@ Cross-attention layers are added inside the transformer blocks of the decoder, m
 - **Architecture:**  
 
   <p align="center">
-    <img src="images/grid_3x3_crossattn.png" width="60%" />
+    <img src="images/cross_attention_architecture.png" width="60%" />
   </p>
 
 - **Sample captions:**  
 
   <p align="center">
-    <img src="images/grid_3x3.png" width="60%" />
+    <img src="images/grid_3x3_cross_attn.png" width="60%" />
   </p>
 
 ---
@@ -138,13 +138,13 @@ A set of learnable queries attends to frozen CLIP features, producing a compact 
 - **Architecture:**  
 
   <p align="center">
-    <img src="images/grid_3x3_BLIP.png" width="60%" />
+    <img src="images/Q_former_architecture.png" width="60%" />
   </p>
 
 - **Sample captions:**  
 
   <p align="center">
-    <img src="images/Generation_1.png" width="60%" />
+    <img src="images/grid_3x3_BLIP.png" width="60%" />
   </p>
 
 ---
@@ -159,26 +159,18 @@ A single epoch (~3 hours) with AdamW, cosine learning rate decay, and batch size
   <img src="images/val_loss_comparison.png" width="60%" />
 </p>
 
-### **Per-model validation curves**  
-
-<p align="center">
-  <img src="images/val_loss_Cross-At.png" width="30%" />
-  <img src="images/val_loss_Linear_model.png" width="30%" />
-  <img src="images/val_loss_Q-Former.png" width="30%" />
-</p>
 
 ### **Captioning metrics (CIDEr, METEOR, etc.)**  
-
-<p align="center">
-  <img src="images/CIDER.png" width="45%" />
-  <img src="images/coco_example.png" width="45%" />
-</p>
-
-### **Additional figures**  
-
-<p align="center">
-  <img src="images/Five_senses.png" width="45%" />
-  <img src="images/Llava.png" width="45%" />
-</p>
+\[
+\begin{tabular}{lcc}
+  \toprule
+  Model & METEOR $\uparrow$ & CIDEr $\uparrow$ \\
+  \midrule
+  Cross-Attention   & $0.334 \pm 0.153$ & 0.321 \\
+  Linear projection & $0.379 \pm 0.139$ & 0.419 \\
+  Q-Former  & $\mathbf{0.412} \pm 0.146$ & \textbf{0.598} \\
+  \bottomrule
+\end{tabular}
+]\
 
 ---
