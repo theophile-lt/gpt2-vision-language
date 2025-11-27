@@ -161,13 +161,15 @@ A single epoch (~3 hours) with AdamW, cosine learning rate decay, and batch size
 </p>
 
 
-### **Captioning metrics (CIDEr, METEOR, etc.)**
+$$
 
-| Model             | METEOR ↑        | CIDEr ↑  |
-|-------------------|-----------------|----------|
-| Cross-Attention   | 0.334 ± 0.153   | 0.321    |
-| Linear Projection | 0.379 ± 0.139   | 0.419    |
-| Q-Former          | **0.412 ± 0.146** | **0.598** |
+\begin{array}{lcc}
+\text{Model} & \text{METEOR} \uparrow & \text{CIDEr} \uparrow \\
+\hline
+\text{Cross-Attention}   & 0.334 \pm 0.153   & 0.321 \\
+\text{Linear Projection} & 0.379 \pm 0.139   & 0.419 \\
+\mathbf{Q\text{-}Former} & \mathbf{0.412} \pm 0.146 & \mathbf{0.598}
+\end{array}
 
-
+$$
 ---
