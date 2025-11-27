@@ -5,7 +5,9 @@
   <img src="images/Generation.png" width="100%" />
 </p>
 
-Ajouter en dessous, image de generation BLIP2, centrée, même taille que les autres images actuellement.
+<p align="center">
+    <img src="images/grid_3x3_BLIP.png" width="60%" />
+  </p>
 
 ## Introduction
 
@@ -58,11 +60,10 @@ After two days of training on FineWeb-Edu (10B tokens), the model achieved 31% H
 
 ### Architecture  
 
-Modifier : réduire la taille de l'architecture de 1/3
 <p align="center">
   <img src="images/GPT-2.png" width="45%" />
-  
 </p>
+
 
 ### Training curves  
 
@@ -162,15 +163,15 @@ A single epoch (~3 hours) with AdamW, cosine learning rate decay, and batch size
 
 ### **Captioning metrics (CIDEr, METEOR, etc.)**  
 \[
-\begin{tabular}{lcc}
+\begin{array}{lcc}
   \toprule
-  Model & METEOR $\uparrow$ & CIDEr $\uparrow$ \\
+  \text{Model} & \text{METEOR} \uparrow & \text{CIDEr} \uparrow \\
   \midrule
-  Cross-Attention   & $0.334 \pm 0.153$ & 0.321 \\
-  Linear projection & $0.379 \pm 0.139$ & 0.419 \\
-  Q-Former  & $\mathbf{0.412} \pm 0.146$ & \textbf{0.598} \\
+  \text{Cross-Attention}   & 0.334 \pm 0.153 & 0.321 \\
+  \text{Linear Projection} & 0.379 \pm 0.139 & 0.419 \\
+  \text{Q-Former}          & \mathbf{0.412} \pm 0.146 & \mathbf{0.598} \\
   \bottomrule
-\end{tabular}
-]\
+\end{array}
+\]
 
 ---
