@@ -4,6 +4,7 @@ import time
 import csv
 import torch
 import torch.distributed as dist
+from torch.distributed import init_process_group, destroy_process_group
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 import tiktoken
@@ -111,7 +112,8 @@ if master_process:
 
 max_lr = 1e-3            
 min_lr = max_lr * 0.01    
-warmup_steps = 20        
+warmup_steps = 20    
+start_step = 0
 max_steps = 80  #One epoch = 73 steps #original : 19073       # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
 def get_lr(it) : # Cosine decay with warmup
     if it < warmup_steps :
@@ -154,7 +156,9 @@ if master_process:
 best_val = float("inf")  
 best_step = 0
 best_path = os.path.join(CKPT_DIR, "model_best.pt")
-SAVE_EVERY = 2500      
+last_path = os.path.join(CKPT_DIR, "model_last.pt")
+SAVE_EVERY = 2500  
+
 
 def save_rolling_checkpoint(step, val_loss):
     """Écrit model_last.pt via un fichier .tmp, exactement comme avant."""
@@ -262,7 +266,7 @@ for step in range(start_step, max_steps) :
 
     # evaluation
     if step % 20 == 0 or last_step :
-       validate_and_checkpoint(step, last_step)
+       run_validation_and_logging(step, last_step)
 
     #training
     model.train()
