@@ -1,31 +1,17 @@
 from dataclasses import dataclass
+import inspect
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-import math
-import inspect
-import os
-from torch.nn.parallel import DistributedDataParallel as DDP
-import torch.distributed as dist
-from contextlib import nullcontext
-import csv, time, glob
-from datetime import datetime
-from torch.utils.data import Dataset, DataLoader
-from torchvision.datasets import CocoCaptions
-import random
-from fvcore.nn import FlopCountAnalysis, flop_count_table, parameter_count_table
-from pycocoevalcap.cider.cider import Cider
-import json
 
-
-#------------------------------------------------------------------
 
 class CausalSelfAttention(nn.Module) :
      
     def __init__(self, config) :
         super().__init__()
         assert config.n_embd % config.n_head == 0
-        #key, query, value projections for all heads, but in a batch
+        #key, query, value projections for all heads
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd)
         #output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd)
@@ -33,27 +19,18 @@ class CausalSelfAttention(nn.Module) :
         #regularization
         self.n_head = config.n_head
         self.n_embd = config.n_embd
-        #not really a 'bias', more of a mask, but following the OpenAI/HF naming though
+        #mask
         self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size))
 
     def forward(self, x) :
-        B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
-        # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        # nh is "number of heads", hs is "head size", and C (number of channels) = nh * hs
-        # e.g. in GPT-2 (124M), n_head=12, hs=64, so nh*hs=C=768 channels in the Transformer
+        B, T, C = x.size() 
         qkv = self.c_attn(x)
         q,k,v = qkv.split(self.n_embd,dim=2)
         k = k.view(B,T,self.n_head, C// self.n_head).transpose(1,2) #(B, nh, T, hs)
         q = q.view(B,T,self.n_head,C//self.n_head).transpose(1,2)
         v = v.view(B,T,self.n_head,C//self.n_head).transpose(1,2)
-        #attention (materializes the large (T,T) matric for all the queries and keys)
-        # att = (q @ k.transpose(-2,-1)) * (1.0 / math.sqrt(k.size(-1)))
-        # att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
-        # att = F.softmax(att, dim=-1)
-        # y = att @v # (B, nh, T, T) @ (B,nh,T,hs) -> (B,nh, T, hs)
         y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
-        
-        y = y.transpose(1,2).contiguous().view(B, T, C) #re assemble all head outputs side by side
+        y = y.transpose(1,2).contiguous().view(B, T, C)
         #output projection
         y = self.c_proj(y)
         return y
@@ -75,25 +52,16 @@ class CrossAttention(nn.Module) :
         self.n_embd = config.n_embd
 
     def forward(self, x, z) :
-        B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
-        # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        # nh is "number of heads", hs is "head size", and C (number of channels) = nh * hs
-        # e.g. in GPT-2 (124M), n_head=12, hs=64, so nh*hs=C=768 channels in the Transformer
-        S=z.size(1)
+        B, T, C = x.size() 
+        S=z.size(1) 
         q = self.q_proj(x) # (B, T, C)
         kv = self.kv_proj(z)   # (B, S, 2C)
         k,v=kv.split(self.n_embd,dim=2)  # (B, S, C), (B, S, C)
         q = q.view(B,T,self.n_head,C//self.n_head).transpose(1,2) #(B, nh, T, hs=d_k)
         k = k.view(B,S,self.n_head, C// self.n_head).transpose(1,2) #(B, nh, S, hs)
         v = v.view(B,S,self.n_head,C//self.n_head).transpose(1,2)
-        #attention (materializes the large (T,T) matric for all the queries and keys)
-        # att = (q @ k.transpose(-2,-1)) * (1.0 / math.sqrt(k.size(-1)))
-        # att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
-        # att = F.softmax(att, dim=-1)
-        # y = att @v # (B, nh, T, T) @ (B,nh,T,hs) -> (B,nh, T, hs)
-        y = F.scaled_dot_product_attention(q, k, v, is_causal=False)
-        
-        y = y.transpose(1,2).contiguous().view(B, T, C) #re assemble all head outputs side by side
+        y = F.scaled_dot_product_attention(q, k, v, is_causal=False)        
+        y = y.transpose(1,2).contiguous().view(B, T, C) 
         #output projection
         y = self.c_proj(y)
         return y
@@ -137,7 +105,6 @@ class Block(nn.Module) :
         self.attn = CausalSelfAttention(config)
         self.ln_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
-        # optional: stabilizes training with a frozen decoder
         self.cross_gate = nn.Parameter(torch.tensor(0.0))
 
     def forward(self, x, z ) :
@@ -168,23 +135,21 @@ class GPT(nn.Module) :
             wpe = nn.Embedding(config.block_size,config.n_embd),
             vis_proj = Vision_projector(config),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
-            ln_f = nn.LayerNorm(config.n_embd),   #LAst layer norm before last Linear
+            ln_f = nn.LayerNorm(config.n_embd),   
                 ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
-        #weight sharing scheme
+        #weight sharing 
         self.transformer.wte.weight = self.lm_head.weight
 
         #init params 
-        self.apply(self.__init_weights)  #apply -> applies a fct to all modules
+        self.apply(self.__init_weights) 
 
-        # Freeze everything by default
         for p in self.parameters():
             p.requires_grad = False
         # Unfreeze only the projector; CrossAttention params are inside Blocks
         for p in self.transformer['vis_proj'].parameters():
             p.requires_grad = True
-        
-        # 3) unfreeze cross-attention (q_proj, kv_proj, c_proj) and cross_gate in every Block
+        #unfreeze cross-attention (q_proj, kv_proj, c_proj) and cross_gate in every Block
         for blk in self.transformer['h']:
             for p in blk.xattn.parameters():
                 p.requires_grad = True
@@ -214,7 +179,7 @@ class GPT(nn.Module) :
         pos_emb = self.transformer.wpe(pos) #positio embeddings of shape (T, n_embd)
         tok_emb = self.transformer.wte(idx) #token embeddings of shape (B,T,n_embd)
         x = tok_emb + pos_emb
-        # Project visual features once (if provided)
+        # Project visual features once
         z_proj = None
         if z is not None:
             z_proj = self.transformer.vis_proj(z)    # (B, S, C)
@@ -250,12 +215,11 @@ class GPT(nn.Module) :
     
     @classmethod
     def from_pretrained(cls, model_type):
-        """Loads pretrained {PT-2 model weights from huggingface"""
+        """Load pretrained GPT-2 model weights from Hugging Face."""
         assert model_type in {'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}
         from transformers import GPT2LMHeadModel
         print("loading weights from pretrained gpt: %s" % model_type)
 
-        # n_layer, n_head and n_embd are determined from model_type
         config_args = {
             'gpt2':         dict(n_layer=12, n_head=12, n_embd=768),  # 124M params
             'gpt2-medium':  dict(n_layer=24, n_head=16, n_embd=1024), # 350M params
@@ -298,11 +262,9 @@ class GPT(nn.Module) :
         return model
     
     def configure_optimizers(self, weight_decay, learning_rate, device) :
-        # start with all of the candidate parameters (that require grad)
         param_dict = {pn: p for pn, p in self.named_parameters()}
         param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
         # create optim groups 
-        #ie all weight tensors in matmiul + embedding decay, all bias and layernorms dont
         decay_params = [p for n, p in param_dict.items() if p.dim()>=2]
         nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
         optim_groups = [
