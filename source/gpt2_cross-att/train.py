@@ -13,17 +13,6 @@ from data import CocoClipFullTokensDataset, evaluate_cider
 
 
 
-
-#run the training loop
-from torch.distributed import init_process_group,destroy_process_group
-device="cpu"
-if torch.cuda.is_available():
-    device="cuda"
-elif hasattr(torch.backends,"mps") and torch.backends.mps.is_available():
-    device="mps"
-print(f"using device: {device}")
-
-
 # set up DDP 
 ddp = int(os.environ.get('RANK', -1)) != -1
 if ddp:
@@ -49,14 +38,11 @@ else:
     print(f"using device: {device}")
 
 device_type = "cuda" if str(device).startswith("cuda") else ("cpu" if device == "cpu" else "cpu")
-
 amp_dtype = torch.bfloat16 if device_type == "cuda" else torch.float32
 
-torch.manual_seed(1337)
-if torch.cuda.is_available() :
-    torch.cuda.manual_seed(1337)
 
 enc = tiktoken.get_encoding("gpt2")
+
 
 # Configuration :
 
@@ -76,6 +62,8 @@ INIT_CKPT = "/Data/theophile.laurent/datasets/gpt2_runs/20251026_101905/log/ckpt
 # COCO+CLIP caption loaders
 COCO_ROOT = "/Data/theophile.laurent/datasets/coco2017"
 CLIP_FULL_DIR  = "/Data/theophile.laurent/datasets/clip_feats_full"
+
+#Dataloaders :
 
 train_ds = CocoClipFullTokensDataset(
     tokens_dir=os.path.join(CLIP_FULL_DIR, "train"),
