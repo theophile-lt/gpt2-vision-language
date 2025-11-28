@@ -74,27 +74,16 @@ def evaluate_cider(
     max_samples=500,
     max_new_tokens=24,
 ):
-    """
-    Évalue CIDEr sur un sous-ensemble du val set COCO en utilisant
-    les FULL TOKENS CLIP (CLS + patches) précomputés dans CLIP_FULL_DIR/val.
-    - model : raw_model (NON DDP)
-    - device : "cuda" ou "cpu"
-    - enc : tokenizer tiktoken gpt2
-    - COCO_ROOT : racine COCO
-    - CLIP_FULL_DIR : racine des tokens CLIP complets
-    """
     model.eval()
     cider_scorer = Cider()
 
     model_dtype = next(model.parameters()).dtype
 
-    # --- COCO val : captions de référence ---
     val_coco = CocoCaptions(
         root=os.path.join(COCO_ROOT, "val2017"),
         annFile=os.path.join(COCO_ROOT, "annotations", "captions_val2017.json"),
     )
 
-    # --- FULL TOKENS CLIP (comme CocoClipFullTokensDataset) ---
     tokens_dir = os.path.join(CLIP_FULL_DIR, "val")
     index_path = os.path.join(tokens_dir, "index.json")
     with open(index_path, "r") as f:
