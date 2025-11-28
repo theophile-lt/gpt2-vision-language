@@ -1,23 +1,20 @@
-from dataclasses import dataclass
-import torch
-import torch.nn as nn
-from torch.nn import functional as F
-import math
-import inspect
 import os
-from torch.nn.parallel import DistributedDataParallel as DDP
+import math
+import time
+import csv
+
+import torch
 import torch.distributed as dist
-from contextlib import nullcontext
-import csv, time, glob
-from datetime import datetime
-from torch.utils.data import Dataset, DataLoader
-from torchvision.datasets import CocoCaptions
-import random
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.nn import functional as F
+from torch.utils.data import DataLoader
+
+import tiktoken
+import numpy as np 
 from fvcore.nn import FlopCountAnalysis, flop_count_table, parameter_count_table
-from pycocoevalcap.cider.cider import Cider
-import json
-from model_cross import *
-from data import * 
+
+from model import GPT, GPTConfig
+from data import CocoClipFullTokensDataset, evaluate_cider, get_most_likely_row
 
 
 
