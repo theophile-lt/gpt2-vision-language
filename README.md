@@ -172,4 +172,15 @@ A single epoch (~3 hours) with AdamW, cosine learning rate decay, and batch size
 
 </div>
 
+
+## Part 3 — Installation and training
+
+## Part 3.1 — Install
+
+## Part 3.2 — Train
+
+## Part 3.3 — Generate
+
+
+
 ---
