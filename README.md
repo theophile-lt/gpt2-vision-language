@@ -25,7 +25,7 @@ All experiments were run on **a single NVIDIA RTX A5000 GPU**.
 We obtained the following results:  
 — Built a **124M-parameter GPT-2 decoder**, following Andrej Karpathy’s 10-lecture series, trained it on **FineWeb-Edu (10B tokens)**, and reached **31% HellaSwag accuracy** after ~2 days on our GPU.  
 — Fine-tuned the model on **COCO 2017** for image captioning; after  **3 hours of training (1 epoch)** for each architecture, captions were already coherent with meaningful semantic content.  
-More details are provided below.
+More details about the architectures, results, and installation are provided below.
 
 ---
 
