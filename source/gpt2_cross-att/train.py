@@ -84,8 +84,7 @@ if torch.cuda.is_available() :
 
 enc = tiktoken.get_encoding("gpt2")
 
-RUN_HELLASWAG = False
-total_batch_size = 524288  #previous : 524288 #2e19
+total_batch_size = 524288  
 B=128 #previous : 16 #micro batch size
 T=32 #previous : T=1024 #sequence length
 assert total_batch_size % (B*T*ddp_world_size) == 0, 'make sure total_batch_size is divisible by B*T*ddp_world_size'
@@ -161,43 +160,6 @@ if master_process:
     n_total = sum(p.numel() for p in raw_model.parameters())
     print(f"[init] trainable params: {n_train}/{n_total}")
 
-# ----------------- FLOPS / PARAMS (fvcore) -----------------
-if master_process:
-    print("==== Parameter count (fvcore) ====")
-    print(parameter_count_table(raw_model))
-
-    # --- modèle "shadow" CPU full-float32 juste pour le comptage FLOPs ---
-    flops_config = GPTConfig(
-        block_size=config.block_size,
-        vocab_size=config.vocab_size,
-        n_layer=config.n_layer,
-        n_head=config.n_head,
-        n_embd=config.n_embd,
-        img_embd=config.img_embd,
-    )
-    flops_model = GPT(flops_config)          # nouveau modèle, jamais casté en bf16
-    flops_model.eval()
-
-    B_flop, T_flop = 1, T                    # même T que ton training
-    x_flop = torch.randint(
-        low=0,
-        high=flops_config.vocab_size,
-        size=(B_flop, T_flop),
-        dtype=torch.long,                    # tokens en long
-        device="cpu",
-    )
-    S_flop = 197                             # nb de tokens visuels (CLS+patches)
-    z_flop = torch.randn(
-        B_flop, S_flop, flops_config.img_embd,
-        dtype=torch.float32,
-        device="cpu",
-    )
-
-    with torch.no_grad():
-        flops = FlopCountAnalysis(flops_model, (x_flop, z_flop))
-        print(f"==== FLOPs (one forward, B={B_flop}, T={T_flop}) ====")
-        print(f"Total FLOPs: {flops.total():.3e}")
-        print(flop_count_table(flops))
 
 
 max_lr = 1e-3            
@@ -368,83 +330,9 @@ for step in range(start_step, max_steps) :
 
             #-------------------END LOGs
 
-    # once in a while evaluate hellaswag
-    if RUN_HELLASWAG :
-        if (step % 250 == 0 or last_step) and (not use_compile):
-            num_correct_norm = 0
-            num_total = 0
-            for i, example in enumerate(iterate_examples("val")):
-                # only process examples where i % ddp_world_size == ddp_rank
-                if i % ddp_world_size != ddp_rank:
-                    continue
-                # render the example into tokens and labels
-                _, tokens, mask, label = render_example(example)
-                tokens = tokens.to(device)
-                mask = mask.to(device)
-                # get the logits
-                with torch.no_grad():
-                    with torch.autocast(device_type=device_type, dtype=amp_dtype):
-                        logits, loss = model(tokens, z=None)
-                    pred_norm = get_most_likely_row(tokens, mask, logits)
-                num_total += 1
-                num_correct_norm += int(pred_norm == label)
-            # reduce the stats across all processes
-            if ddp:
-                num_total = torch.tensor(num_total, dtype=torch.long, device=device)
-                num_correct_norm = torch.tensor(num_correct_norm, dtype=torch.long, device=device)
-                dist.all_reduce(num_total, op=dist.ReduceOp.SUM)
-                dist.all_reduce(num_correct_norm, op=dist.ReduceOp.SUM)
-                num_total = num_total.item()
-                num_correct_norm = num_correct_norm.item()
-            acc_norm = num_correct_norm / num_total
-            if master_process:
-                print(f"HellaSwag accuracy: {num_correct_norm}/{num_total}={acc_norm:.4f}")
-                with open(log_file, "a") as f:
-                    f.write(f"{step} hella {acc_norm:.4f}\n")
 
-                # --- CSV: ligne 'hella' ---
-                with open(csv_log, "a", newline="") as f:
-                    csv.writer(f).writerow([
-                        time.strftime("%Y-%m-%d %H:%M:%S"), "hella", step,
-                        "", "", "", "", "", f"{acc_norm:.4f}"
-                    ])
 
-    
-    # once in a while generate from the model (except step 0, which is noise)
-    if ((step > 0 and step % 250 == 0) or last_step) and (not use_compile):
-        model.eval()
-        num_return_sequences = 4
-        max_length = 32
-        tokens = enc.encode("Hello, I'm a language model,")
-        tokens = torch.tensor(tokens, dtype=torch.long)
-        tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1)
-        xgen = tokens.to(device)
-        sample_rng = torch.Generator(device=device)
-        sample_rng.manual_seed(42 + ddp_rank)
-        while xgen.size(1) < max_length:
-            # forward the model to get the logits
-            with torch.no_grad():
-                with torch.autocast(device_type=device_type, dtype=amp_dtype):
-                    logits, loss = model(xgen, z = None) # (B, T, vocab_size)
-                # take the logits at the last position
-                logits = logits[:, -1, :] # (B, vocab_size)
-                # get the probabilities
-                probs = F.softmax(logits, dim=-1)
-                # do top-k sampling of 50 (huggingface pipeline default)
-                # topk_probs here becomes (5, 50), topk_indices is (5, 50)
-                topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
-                # select a token from the top-k probabilities
-                # note: multinomial does not demand the input to sum to 1
-                ix = torch.multinomial(topk_probs, 1, generator=sample_rng) # (B, 1)
-                # gather the corresponding indices
-                xcol = torch.gather(topk_indices, -1, ix) # (B, 1)
-                # append to the sequence
-                xgen = torch.cat((xgen, xcol), dim=1)
-        # print the generated text
-        for i in range(num_return_sequences):
-            tokens = xgen[i, :max_length].tolist()
-            decoded = enc.decode(tokens)
-            print(f"rank {ddp_rank} sample {i}: {decoded}")
+
 
 
     #training loop
@@ -534,50 +422,3 @@ if ddp:
     destroy_process_group()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-import sys;sys.exit(0)
-
-
-
-#Prefix tokens
-model.eval()
-num_return_sequences = 5
-max_length = 30
-
-tokens = enc.encode( "Hello, I'm a language model,")
-tokens = torch.tensor(tokens,dtype=torch.long) #(8,)
-tokens = tokens.unsqueeze(0).repeat(num_return_sequences,1)# (5,8)
-x= tokens.to(device)  
-
-#generate ! right now x is (B,T) where B=5, T=8
-
-torch.manual_seed(42)
-if device_type == "cuda":
-    torch.cuda.manual_seed(42)
-while x.size(1) < max_length :
-    with torch.no_grad() :
-        logits = model(x, z = None)
-        logits = logits[:,-1,:]
-        probs=F.softmax(logits, dim=-1)
-        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)  #keep to 50 probabiities, avoid rare tokens 
-        ix= torch.multinomial(topk_probs, 1)
-        xcol = torch.gather(topk_indices,-1,ix)
-        x=torch.cat((x,xcol),dim=1)
-
-#print the generated text
-for i in range(num_return_sequences) :
-    tokens = x[i, :max_length].tolist()
-    decoded = enc.decode(tokens)
-    print(">", decoded)
