@@ -2,7 +2,7 @@
 
 
 <p align="center">
-  <img src="images/Generation.png" width="100%" />
+  <img src="images/Generation_1.png" width="100%" />
 </p>
 
 <p align="center">
@@ -75,7 +75,7 @@ After two days of training on FineWeb-Edu (10B tokens), the model achieved 31% H
 ### Sample generations  
 
 <p align="center">
-  <img src="images/Generation.png" width="100%" />
+  <img src="images/Generation_1.png" width="100%" />
 </p>
 
 ---
