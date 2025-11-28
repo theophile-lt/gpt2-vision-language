@@ -13,7 +13,7 @@
 
 We present in this repository an independent project that we developed in parallel with our IASD master coursework.
 
-Our goals were:
+This projects aims to:
 
 1. **Build a GPT-2 decoder entirely from scratch** and pre-train it on a large corpus.  
 2. **Fine-tune it for image captioning**, connecting a frozen vision encoder (CLIP ViT-L/14) to our frozen GPT-2 through several lightweight multimodal bridges.
