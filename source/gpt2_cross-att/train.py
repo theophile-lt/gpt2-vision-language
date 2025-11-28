@@ -2,55 +2,31 @@ import os
 import math
 import time
 import csv
-
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.nn import functional as F
 from torch.utils.data import DataLoader
-
 import tiktoken
-import numpy as np 
-from fvcore.nn import FlopCountAnalysis, flop_count_table, parameter_count_table
 
 from model import GPT, GPTConfig
-from data import CocoClipFullTokensDataset, evaluate_cider, get_most_likely_row
+from data import CocoClipFullTokensDataset, evaluate_cider
 
 
-
-
-
-#simple launch:
-
-
-#export FW_OUT_DIR=/Data/theophile.laurent/datasets/edu_fineweb10B
-
-# (exemple) reprendre un run existant :
-# export LOG_DIR=/Data/theophile.laurent/datasets/gpt2_runs/20251026_053012/log
-# python -u train_gpt2v2.py 2>&1 | tee -a "$LOG_DIR/restart_$(date +%H%M%S).out"
-
-# new command : FW_OUT_DIR=/Data/theophile.laurent/datasets/edu_fineweb10B \
-# CUDA_VISIBLE_DEVICES=0 \
-# LOG_DIR=/Data/theophile.laurent/logs_multiM/gpt2_cross_full_e1/$(date +%Y%m%d_%H%M%S)/log \
-# torchrun --standalone --nproc_per_node=1 gpt_multi_full.py
 
 
 #run the training loop
 from torch.distributed import init_process_group,destroy_process_group
-#Attempt to autodetect the device
 device="cpu"
 if torch.cuda.is_available():
     device="cuda"
 elif hasattr(torch.backends,"mps") and torch.backends.mps.is_available():
     device="mps"
 print(f"using device: {device}")
-# device="cpu" #OVERRIDE
 
-# set up DDP (distributed data parallel).
-# torchrun command sets the env variables RANK, LOCAL_RANK, and WORLD_SIZE
+
+# set up DDP 
 ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
 if ddp:
-    # use of DDP atm demands CUDA, we set the device appropriately according to rank
     assert torch.cuda.is_available(), "for now i think we need CUDA for DDP"
     init_process_group(backend='nccl')
     ddp_rank = int(os.environ['RANK'])
@@ -60,7 +36,6 @@ if ddp:
     torch.cuda.set_device(device)
     master_process = ddp_rank == 0 # this process will do logging, checkpointing etc.
 else:
-    # vanilla, non-DDP run
     ddp_rank = 0
     ddp_local_rank = 0
     ddp_world_size = 1
@@ -73,7 +48,6 @@ else:
         device = "mps"
     print(f"using device: {device}")
 
-# >>> add this line ONCE here so it's correct everywhere (DDP or not):
 device_type = "cuda" if str(device).startswith("cuda") else ("cpu" if device == "cpu" else "cpu")
 
 amp_dtype = torch.bfloat16 if device_type == "cuda" else torch.float32
@@ -84,25 +58,23 @@ if torch.cuda.is_available() :
 
 enc = tiktoken.get_encoding("gpt2")
 
-total_batch_size = 524288  
-B=128 #previous : 16 #micro batch size
-T=32 #previous : T=1024 #sequence length
+# Configuration :
+
+total_batch_size = 524288   # 2e19 tokens
+B=128 #micro batch size
+T=32 #sequence length
 assert total_batch_size % (B*T*ddp_world_size) == 0, 'make sure total_batch_size is divisible by B*T*ddp_world_size'
 grad_accum_steps = total_batch_size//(B*T*ddp_world_size)
 if master_process :
     print(f"total desired batch size:{total_batch_size}")
     print(f"=> calculated gradient accumulation steps: {grad_accum_steps}")
 
-print("I am GPU",ddp_rank )
-print("bye")
-# import sys; sys.exit(0)
 
 # Checkpoint path :
 INIT_CKPT = "/Data/theophile.laurent/datasets/gpt2_runs/20251026_101905/log/ckpts/model_best.pt"
 
 # COCO+CLIP caption loaders
 COCO_ROOT = "/Data/theophile.laurent/datasets/coco2017"
-CLIP_FEATS_DIR = "/Data/theophile.laurent/datasets/clip_feats"
 CLIP_FULL_DIR  = "/Data/theophile.laurent/datasets/clip_feats_full"
 
 train_ds = CocoClipFullTokensDataset(
@@ -125,7 +97,6 @@ train_loader = DataLoader(train_ds, batch_size=B, shuffle=True,
                           num_workers=4, pin_memory=True, drop_last=True)
 val_loader = DataLoader(val_ds, batch_size=B, shuffle=False,
                         num_workers=4, pin_memory=True, drop_last=False)
-
 train_iter = iter(train_loader)
 
 
@@ -166,20 +137,17 @@ max_lr = 1e-3
 min_lr = max_lr * 0.01    
 warmup_steps = 20        
 max_steps = 80  #One epoch = 73 steps #original : 19073       # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
-def get_lr(it) :
-    # 1) linear warmup for warmup iters :
+def get_lr(it) : # Cosine decay with warmup
     if it < warmup_steps :
         return max_lr * (it+1) / warmup_steps
-    #if it > lr_decay_iter, return min learning rate
     if it > max_steps :
         return min_lr
-    # 3) in between, use cosine decay
     decay_ratio = (it - warmup_steps)/(max_steps-warmup_steps)
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * ( 1.0 + math.cos(math.pi * decay_ratio)) #coeff starts at 1 and goes to 0
     return min_lr + coeff * (max_lr - min_lr)
 
-#Optimize!
+
 optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device=device_type)
 
 # --- LOGS & CHECKPOINTS ------------
@@ -232,12 +200,12 @@ if os.path.isfile(last_path):
     if master_process:
         print(f"[ckpt] resumed from {last_path} at step {start_step}")
 
-# >>> ajouter ceci pour DDP :
+
 if ddp:
     dist.barrier()
 
 
-#-------------------------------------------
+# Training loop
 
 for step in range(start_step, max_steps) :
     t0=time.time()
