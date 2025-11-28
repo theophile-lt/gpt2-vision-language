@@ -93,7 +93,7 @@ We then trained three architectures on **COCO 2017** (118k train, 5k val, 5 capt
 A single learned linear layer maps the pooled CLIP visual tokens directly into the GPT-2 embedding space.
 
 - **Architecture:**
-- Blocks with frozen parameters are in blue, and trainable parameters are in red.
+Blocks highlighted in blue denote frozen parameters, whereas blocks in red correspond to trainable components.
   <p align="center">
     <img src="images/Linear_projection_architecture.png" width="60%" />
   </p>
@@ -110,8 +110,8 @@ A single learned linear layer maps the pooled CLIP visual tokens directly into t
 
 Cross-attention layers are added inside the transformer blocks of the decoder, maintaining every parameters of other layers in the blocks frozen.
 
-- **Architecture:**  
-
+- **Architecture:**
+Blocks highlighted in blue denote frozen parameters, whereas blocks in red correspond to trainable components.
   <p align="center">
     <img src="images/cross_attention_architecture.png" width="60%" />
   </p>
@@ -135,7 +135,7 @@ A set of learnable queries attends to frozen CLIP features, producing a compact 
   </p>
 
 - **Architecture:**  
-
+Blocks highlighted in blue denote frozen parameters, whereas blocks in red correspond to trainable components.
   <p align="center">
     <img src="images/Q_former_architecture.png" width="60%" />
   </p>
