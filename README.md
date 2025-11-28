@@ -184,6 +184,7 @@ A single epoch (~3 hours) with AdamW, cosine learning rate decay, and batch size
 
 ## Acknowledgements
 
+## References 
 
 ## Contributors
 
