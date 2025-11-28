@@ -25,16 +25,16 @@ print(f"using device: {device}")
 
 
 # set up DDP 
-ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
+ddp = int(os.environ.get('RANK', -1)) != -1
 if ddp:
-    assert torch.cuda.is_available(), "for now i think we need CUDA for DDP"
+    assert torch.cuda.is_available()
     init_process_group(backend='nccl')
     ddp_rank = int(os.environ['RANK'])
     ddp_local_rank = int(os.environ['LOCAL_RANK'])
     ddp_world_size = int(os.environ['WORLD_SIZE'])
     device = f'cuda:{ddp_local_rank}'
     torch.cuda.set_device(device)
-    master_process = ddp_rank == 0 # this process will do logging, checkpointing etc.
+    master_process = ddp_rank == 0 
 else:
     ddp_rank = 0
     ddp_local_rank = 0
