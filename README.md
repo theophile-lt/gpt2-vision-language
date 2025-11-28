@@ -182,5 +182,16 @@ A single epoch (~3 hours) with AdamW, cosine learning rate decay, and batch size
 ## Part 3.3 — Generate
 
 
+## Acknowledgements
+
+
+## Contributors
+
+
+This project has been conducted by Théophile Laurent, Gabriel Lenain and Lucas Mebille. (liens Github)
+
+
+
+
 
 ---
