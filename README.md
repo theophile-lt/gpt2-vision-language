@@ -16,7 +16,7 @@ We present in this repository an independent project that we developed in parall
 This projects aims to:
 
 1. **Build a GPT-2 decoder entirely from scratch** and pre-train it on a large corpus.  
-2. **Fine-tune it for image captioning**, connecting a frozen vision encoder (CLIP ViT-L/14) to our frozen GPT-2 through several lightweight multimodal bridges.
+2. **Fine-tune it for image captioning**, connecting a frozen vision encoder (CLIP ViT-L/14) to our frozen GPT-2 through different lightweight multimodal bridges.
 
 We wanted to explore large-scale pre-training, understand the challenges of multimodal alignment, and experiment with vision representations. We implemented everything ourselves: model components, architecture blocks, and optimization. We experimented a more exploratory part in image-captioning task with a literature review of multimodal language models and the choice of three architectures few-resource-friendly (illustrated below): **linear projection**, **cross-attention**, and **Q-Former blocks inspired by BLIP-2**.
 
