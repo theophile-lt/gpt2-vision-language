@@ -8,6 +8,7 @@ import random
 from pycocoevalcap.cider.cider import Cider
 import json
 
+# Loading precomputed CLIP embeddings for COCO
 
 class CocoClipFullTokensDataset(Dataset):
 
@@ -18,13 +19,10 @@ class CocoClipFullTokensDataset(Dataset):
         self.enc = tokenizer
         self.max_len = max_len
         self.eot = self.enc.eot_token
-
         index_path = os.path.join(tokens_dir, "index.json")
         with open(index_path, "r") as f:
             self.index = json.load(f)
         assert len(self.index) == len(self.ds), "index.json length mismatch with COCO"
-
-        # cache du shard courant
         self._current_shard_name = None
         self._current_shard_tensor = None
 
@@ -51,19 +49,18 @@ class CocoClipFullTokensDataset(Dataset):
         img, caps = self.ds[idx]
         text = random.choice(caps)
         x, y, m = self._encode_caption(text)
-
         entry = self.index[idx]
         shard_name = entry["shard"]
         row = entry["row"]
-
         if shard_name != self._current_shard_name:
             shard_path = os.path.join(self.tokens_dir, shard_name)
             self._current_shard_tensor = torch.load(shard_path, map_location="cpu")  # [B, L, 768]
             self._current_shard_name = shard_name
-
         z = self._current_shard_tensor[row]                                 # (1, L, 768)  => S = L
         return x, y, m, z
 
+
+# Evaluation Metric
 
 def evaluate_cider(
     model,
@@ -76,14 +73,11 @@ def evaluate_cider(
 ):
     model.eval()
     cider_scorer = Cider()
-
     model_dtype = next(model.parameters()).dtype
-
     val_coco = CocoCaptions(
         root=os.path.join(COCO_ROOT, "val2017"),
         annFile=os.path.join(COCO_ROOT, "annotations", "captions_val2017.json"),
     )
-
     tokens_dir = os.path.join(CLIP_FULL_DIR, "val")
     index_path = os.path.join(tokens_dir, "index.json")
     with open(index_path, "r") as f:
@@ -92,31 +86,24 @@ def evaluate_cider(
 
     current_shard_name = None
     current_shard_tensor = None  # (B_shard, L, 768)
-
     gts = {}
     res = {}
-
     n_eval = min(max_samples, len(val_coco))
     for idx in range(n_eval):
         _, caps = val_coco[idx]
         gts[idx] = caps
-
         entry = index[idx]
         shard_name = entry["shard"]
         row = entry["row"]
-
         if shard_name != current_shard_name:
             shard_path = os.path.join(tokens_dir, shard_name)
             current_shard_tensor = torch.load(shard_path, map_location="cpu")
             current_shard_name = shard_name
-
         z = current_shard_tensor[row]                      # (L, 768)
         z = z.unsqueeze(0).to(device=device, dtype=model_dtype)  # (1, L, 768)
-
         prompt = "A photo of"
         prompt_ids = enc.encode(prompt)
         x = torch.tensor(prompt_ids, dtype=torch.long, device=device)[None, :]
-
         for _ in range(max_new_tokens):
             with torch.no_grad():
                 logits, _ = model(x, z=z)
