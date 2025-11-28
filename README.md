@@ -27,8 +27,6 @@ We obtained the following results:
 — Fine-tuned the model on **COCO 2017** for image captioning; after only **3 hours of training (1 epoch)**, captions were already coherent with meaningful semantic content.  
 More details are provided below.
 
-Enjoyed a lot and we learned a lot… 
-
 ---
 
 ## High-Level Overview
