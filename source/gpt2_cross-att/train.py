@@ -45,11 +45,9 @@ enc = tiktoken.get_encoding("gpt2")
 
 # Configuration :
 
-total_batch_size = 524288   # 2e19 tokens
 B=128 #micro batch size
 T=32 #sequence length
-assert total_batch_size % (B*T*ddp_world_size) == 0, 'make sure total_batch_size is divisible by B*T*ddp_world_size'
-grad_accum_steps = total_batch_size//(B*T*ddp_world_size)
+grad_accum_steps = 1
 
 
 # Checkpoint :
@@ -110,11 +108,14 @@ if master_process:
 
 # Optimizer and learning rate scheduler
 
+tokens_per_epoch = len(train_ds) * T
+steps_per_epoch = math.ceil(tokens_per_epoch / total_batch_size)
+num_epochs = 1
 max_lr = 1e-3            
 min_lr = max_lr * 0.01    
 warmup_steps = 20    
 start_step = 0
-max_steps = 80  #One epoch = 73 steps #original : 19073       # 19,073 steps is ~1 epoch, if data is 10B tokens and batch size 0.5M tokens
+max_steps = num_epochs * steps_per_epoch   
 def get_lr(it) : # Cosine decay with warmup
     if it < warmup_steps :
         return max_lr * (it+1) / warmup_steps
