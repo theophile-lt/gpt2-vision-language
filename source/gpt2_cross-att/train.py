@@ -108,8 +108,8 @@ if master_process:
 
 # Optimizer and learning rate scheduler
 
-tokens_per_epoch = len(train_ds) * T
-steps_per_epoch = math.ceil(tokens_per_epoch / total_batch_size)
+global_batch_size = B * ddp_world_size * grad_accum_steps
+steps_per_epoch = math.ceil(len(train_ds) / global_batch_size)
 num_epochs = 1
 max_lr = 1e-3            
 min_lr = max_lr * 0.01    
@@ -126,7 +126,7 @@ def get_lr(it) : # Cosine decay with warmup
     coeff = 0.5 * ( 1.0 + math.cos(math.pi * decay_ratio)) #coeff starts at 1 and goes to 0
     return min_lr + coeff * (max_lr - min_lr)
 
-optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=6e-4, device=device_type)
+optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=max_lr, device=device_type)
 
 
 # Logs
