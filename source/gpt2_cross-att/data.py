@@ -7,6 +7,8 @@ from torchvision.datasets import CocoCaptions
 import random
 from pycocoevalcap.cider.cider import Cider
 import json
+from model import pool_clip_197_to_33_avg_with_cls
+
 
 # Loading precomputed CLIP embeddings for COCO
 
@@ -101,6 +103,7 @@ def evaluate_cider(
             current_shard_name = shard_name
         z = current_shard_tensor[row]                      
         z = z.unsqueeze(0).to(device=device, dtype=model_dtype)  
+        z = pool_clip_197_to_33_avg_with_cls(z) 
         prompt = "A photo of"
         prompt_ids = enc.encode(prompt)
         x = torch.tensor(prompt_ids, dtype=torch.long, device=device)[None, :]
