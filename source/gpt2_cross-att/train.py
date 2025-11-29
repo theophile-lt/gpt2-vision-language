@@ -8,7 +8,6 @@ from torch.distributed import init_process_group, destroy_process_group
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 import tiktoken
-
 from model import GPT, GPTConfig
 from data import CocoClipFullTokensDataset, evaluate_cider
 
