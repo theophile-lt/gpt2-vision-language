@@ -31,7 +31,7 @@ class CausalSelfAttention(nn.Module) :
         self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size))
 
     def forward(self, x) :
-        B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
+        B, T, C = x.size() 
         qkv = self.c_attn(x)
         q,k,v = qkv.split(self.n_embd,dim=2)
         k = k.view(B,T,self.n_head, C// self.n_head).transpose(1,2) #(B, nh, T, hs)
@@ -91,17 +91,17 @@ class GPT(nn.Module) :
             wte = nn.Embedding(config.vocab_size, config.n_embd),
             wpe = nn.Embedding(config.block_size,config.n_embd),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
-            ln_f = nn.LayerNorm(config.n_embd),   #LAst layer norm before last Linear
+            ln_f = nn.LayerNorm(config.n_embd),   
                 ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.transformer.wte.weight = self.lm_head.weight
-        self.apply(self.__init_weights)  #apply -> applies a fct to all modules
+        self.apply(self.__init_weights)
 
     def __init_weights(self, module) :
         if isinstance(module, nn.Linear) :
             std = 0.02
             if hasattr(module, 'NANOGPT_SCALE_INIT') :
-                std*= (2*self.config.n_layer) ** -0.5  #each layer has two blocks so two residual paths
+                std*= (2*self.config.n_layer) ** -0.5  
             torch.nn.init.normal_(module.weight, mean = 0.0, std = std)
             if module.bias is not None :
                 torch.nn.init.zeros_(module.bias)
@@ -112,8 +112,8 @@ class GPT(nn.Module) :
         B, T = idx.size() 
         assert T<= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
         pos = torch.arange(0, T, dtype=torch.long, device=idx.device)
-        pos_emb = self.transformer.wpe(pos) #positio embeddings of shape (T, n_embd)
-        tok_emb = self.transformer.wte(idx) #token embeddings of shape (B,T,n_embd)
+        pos_emb = self.transformer.wpe(pos)
+        tok_emb = self.transformer.wte(idx)
         x = tok_emb + pos_emb
         for block in self.transformer.h :
             x=block(x)
@@ -121,15 +121,12 @@ class GPT(nn.Module) :
         logits=self.lm_head(x)
         loss=None
         if targets is not None :
-            loss = F.cross_entropy(logits.view(-1,logits.size(-1)), targets.view(-1)) #logits two dim, with first dim flatten of batchs and T tokens  (B, T)
+            loss = F.cross_entropy(logits.view(-1,logits.size(-1)), targets.view(-1)) 
         return logits, loss
     
     def configure_optimizers(self, weight_decay, learning_rate, device) :
-        # start with all of the candidate parameters (that require grad)
         param_dict = {pn: p for pn, p in self.named_parameters()}
         param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
-        # create optim groups 
-        #ie all weight tensors in matmiul + embedding decay, all bias and layernorms dont
         decay_params = [p for n, p in param_dict.items() if p.dim()>=2]
         nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
         optim_groups = [
@@ -140,7 +137,6 @@ class GPT(nn.Module) :
         num_nodecay_params = sum(p.numel() for p in nodecay_params)
         print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
         print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
-        #create AdamW optimizer and use the fused version if availabe
         fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
         use_fused = fused_available and 'cuda' in device
         print(f"using fused AdamW:{use_fused}")
@@ -217,7 +213,7 @@ print(f"using device: {device}")
 
 
 # set up DDP
-ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
+ddp = int(os.environ.get('RANK', -1)) != -1
 if ddp:
     assert torch.cuda.is_available(), "for now i think we need CUDA for DDP"
     init_process_group(backend='nccl')
@@ -226,7 +222,7 @@ if ddp:
     ddp_world_size = int(os.environ['WORLD_SIZE'])
     device = f'cuda:{ddp_local_rank}'
     torch.cuda.set_device(device)
-    master_process = ddp_rank == 0 # this process will do logging, checkpointing etc.
+    master_process = ddp_rank == 0 
 else:
     ddp_rank = 0
     ddp_local_rank = 0
@@ -246,7 +242,7 @@ enc = tiktoken.get_encoding("gpt2")
 
 RUN_HELLASWAG = True
 total_batch_size = 524288  #2e19
-B=16 #previous : 16 #micro batch size
+B=16 # micro batch size
 T=1024 #previous : T=1024 #sequence length
 assert total_batch_size % (B*T*ddp_world_size) == 0, 'make sure total_batch_size is divisible by B*T*ddp_world_size'
 grad_accum_steps = total_batch_size//(B*T*ddp_world_size)
@@ -285,7 +281,7 @@ def get_lr(it) : #Cosine decay with warmup
         return min_lr
     decay_ratio = (it - warmup_steps)/(max_steps-warmup_steps)
     assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * ( 1.0 + math.cos(math.pi * decay_ratio)) #coeff starts at 1 and goes to 0
+    coeff = 0.5 * ( 1.0 + math.cos(math.pi * decay_ratio)) 
     return min_lr + coeff * (max_lr - min_lr)
 
 optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=max_lr, device=device_type)
@@ -444,12 +440,12 @@ for step in range(start_step, max_steps) :
         while xgen.size(1) < max_length:
             with torch.no_grad():
                 with torch.autocast(device_type=device_type, dtype=amp_dtype):
-                    logits, loss = model(xgen) # (B, T, vocab_size)
-                logits = logits[:, -1, :] # (B, vocab_size)
+                    logits, loss = model(xgen)
+                logits = logits[:, -1, :] #
                 probs = F.softmax(logits, dim=-1)
                 topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
                 ix = torch.multinomial(topk_probs, 1, generator=sample_rng) 
-                xcol = torch.gather(topk_indices, -1, ix) # (B, 1)
+                xcol = torch.gather(topk_indices, -1, ix)
                 xgen = torch.cat((xgen, xcol), dim=1)
         for i in range(num_return_sequences):
             tokens = xgen[i, :max_length].tolist()
