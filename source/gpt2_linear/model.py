@@ -111,61 +111,23 @@ class GPT_previous(nn.Module):
         return logits, loss
 
 
-class QFormerLayer(nn.Module):
-    
-    def __init__(self, d, n_heads, drop=0.1):
-        super().__init__()
-        self.ln1 = nn.LayerNorm(d)
-        self.self_attn = nn.MultiheadAttention(d, n_heads, dropout=drop, batch_first=True)
-
-        self.ln2_q = nn.LayerNorm(d)
-        self.ln2_v = nn.LayerNorm(d)
-        self.cross_attn = nn.MultiheadAttention(d, n_heads, dropout=drop, batch_first=True)
-
-        self.ln3 = nn.LayerNorm(d)
-        self.mlp = nn.Sequential(
-            nn.Linear(d, 4 * d),
-            nn.GELU(),
-            nn.Linear(4 * d, d),
-        )
-        self.drop = nn.Dropout(drop)
-
-    def forward(self, q, v):
-        q2 = self.ln1(q)
-        sa_out, _ = self.self_attn(q2, q2, q2)
-        q = q + self.drop(sa_out)
-
-        q2 = self.ln2_q(q)
-        v2 = self.ln2_v(v)
-        ca_out, _ = self.cross_attn(q2, v2, v2)
-        q = q + self.drop(ca_out)
-
-        q2 = self.ln3(q)
-        q = q + self.drop(self.mlp(q2))
-        return q
-
-class BLIP2Bridge(nn.Module):
-    
-    def __init__(self, enc_dim, d_lm, n_heads, n_queries=2, n_layers=2, drop=0.1):
+class Linear_Bridge(nn.Module):
+    def __init__(
+        self,
+        enc_dim,
+        d_lm,
+        n_heads=None,
+        n_queries=None,
+        n_layers=None,
+        drop=0.1,
+    ):
         super().__init__()
         self.vis_proj = nn.Linear(enc_dim, d_lm)
-        self.n_queries = n_queries
-        self.query_tokens = nn.Parameter(torch.randn(n_queries, d_lm))
-
-        self.layers = nn.ModuleList(
-            [QFormerLayer(d_lm, n_heads, drop=drop) for _ in range(n_layers)]
-        )
 
     def forward(self, patch_tokens):
-        x = self.vis_proj(patch_tokens)  
-        B, N, D = x.shape
+        x = self.vis_proj(patch_tokens)
+        return x
 
-        q = self.query_tokens.unsqueeze(0).expand(B, -1, -1)
-
-        for layer in self.layers:
-            q = layer(q, x)  
-
-        return q  
 
 # We define the new entire architecture
 
@@ -185,7 +147,7 @@ class GPT_Caption(nn.Module):
         cfg = self.gpt.config
         self.d = cfg.n_embd
         self.block_size = cfg.block_size
-        self.bridge = BLIP2Bridge(
+        self.bridge = Linear_Bridge(
             enc_dim=enc_dim,
             d_lm=self.d,
             n_heads=cfg.n_head,
