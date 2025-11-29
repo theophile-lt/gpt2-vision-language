@@ -204,3 +204,20 @@ class GPT(nn.Module) :
         print(f"using fused AdamW:{use_fused}")
         optimizer=torch.optim.AdamW(optim_groups, lr= learning_rate, betas = (0.9,0.95), eps= 1e-8, fused=use_fused)
         return optimizer
+
+
+def pool_clip_197_to_33_avg_with_cls(tokens_197: torch.Tensor) -> torch.Tensor:
+
+    B, L, D = tokens_197.shape
+    cls = tokens_197[:, :1, :]            
+    patches = tokens_197[:, 1:, :]   
+    N = patches.size(1)
+    side = int(round(N ** 0.5))
+    assert side * side == N, f"Expected square grid, got N={N}"
+    patches = patches.view(B, side, side, D)   
+    patches = patches.permute(0, 3, 1, 2)      
+    pooled = F.adaptive_avg_pool2d(patches, (4, 8))  
+    pooled = pooled.view(B, D, 32).permute(0, 2, 1)  
+    z = torch.cat([cls, pooled], dim=1)
+    z = F.normalize(z, dim=-1)
+    return z
