@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import os
@@ -8,6 +7,8 @@ from torchvision.datasets import CocoCaptions
 import random
 from pycocoevalcap.cider.cider import Cider
 import json
+from model import pool_clip_197_to_33_avg_with_cls
+
 
 # Loading precomputed CLIP embeddings for COCO
 
@@ -55,9 +56,9 @@ class CocoClipFullTokensDataset(Dataset):
         row = entry["row"]
         if shard_name != self._current_shard_name:
             shard_path = os.path.join(self.tokens_dir, shard_name)
-            self._current_shard_tensor = torch.load(shard_path, map_location="cpu")  # [B, L, 768]
+            self._current_shard_tensor = torch.load(shard_path, map_location="cpu") 
             self._current_shard_name = shard_name
-        z = self._current_shard_tensor[row]                                 # (1, L, 768)  => S = L
+        z = self._current_shard_tensor[row]                                 
         return x, y, m, z
 
 
@@ -86,7 +87,7 @@ def evaluate_cider(
     assert len(index) == len(val_coco), "index.json length mismatch with COCO val"
 
     current_shard_name = None
-    current_shard_tensor = None  # (B_shard, L, 768)
+    current_shard_tensor = None  
     gts = {}
     res = {}
     n_eval = min(max_samples, len(val_coco))
@@ -100,8 +101,9 @@ def evaluate_cider(
             shard_path = os.path.join(tokens_dir, shard_name)
             current_shard_tensor = torch.load(shard_path, map_location="cpu")
             current_shard_name = shard_name
-        z = current_shard_tensor[row]                      # (L, 768)
-        z = z.unsqueeze(0).to(device=device, dtype=model_dtype)  # (1, L, 768)
+        z = current_shard_tensor[row]                      
+        z = z.unsqueeze(0).to(device=device, dtype=model_dtype)  
+        z = pool_clip_197_to_33_avg_with_cls(z) 
         prompt = "A photo of"
         prompt_ids = enc.encode(prompt)
         x = torch.tensor(prompt_ids, dtype=torch.long, device=device)[None, :]
