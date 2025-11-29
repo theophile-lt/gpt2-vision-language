@@ -167,6 +167,8 @@ class BLIP2Bridge(nn.Module):
 
         return q  
 
+# We define the new entire architecture
+
 class GPT_Caption(nn.Module):
 
     def __init__(
