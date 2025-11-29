@@ -241,9 +241,9 @@ amp_dtype = torch.bfloat16 if device_type == "cuda" else torch.float32
 enc = tiktoken.get_encoding("gpt2")
 
 RUN_HELLASWAG = True
-total_batch_size = 524288  #2e19
+total_batch_size = 524288 
 B=16 # micro batch size
-T=1024 #previous : T=1024 #sequence length
+T=1024 #sequence length
 assert total_batch_size % (B*T*ddp_world_size) == 0, 'make sure total_batch_size is divisible by B*T*ddp_world_size'
 grad_accum_steps = total_batch_size//(B*T*ddp_world_size)
 if master_process :
