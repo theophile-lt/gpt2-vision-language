@@ -363,7 +363,7 @@ if master_process:
             df.to_excel(writer, index=False, sheet_name="metrics")
         print(f"[excel] écrit: {xlsx_path}")
     except Exception as e:
-        print(print(f"fail conversion to xlsx: {e}"))
+        print(f"fail conversion to xlsx: {e}")
 
 
 
