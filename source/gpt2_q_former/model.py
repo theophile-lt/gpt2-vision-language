@@ -136,12 +136,7 @@ def load_nanogpt_from_ckpt(ckpt_path: str, map_location="cpu") -> GPT_previous:
     return gpt
 
 class QFormerLayer(nn.Module):
-    """
-    Un bloc de Q-Former :
-      - self-attention sur les queries
-      - cross-attention queries -> vision features
-      - MLP
-    """
+    
     def __init__(self, d, n_heads, drop=0.1):
         super().__init__()
         self.ln1 = nn.LayerNorm(d)
@@ -174,14 +169,8 @@ class QFormerLayer(nn.Module):
         return q
 
 class BLIP2Bridge(nn.Module):
-    """
-    Bridge BLIP-2 :
-      - projette enc_dim -> d_lm
-      - M queries apprenables
-      - L couches de Q-Former
-    Sortie : (B, M, d_lm) = M pseudo-tokens image dans l'espace du LM.
-    """
-    def __init__(self, enc_dim, d_lm, n_heads, n_queries=8, n_layers=2, drop=0.1):
+    
+    def __init__(self, enc_dim, d_lm, n_heads, n_queries=2, n_layers=2, drop=0.1):
         super().__init__()
         self.vis_proj = nn.Linear(enc_dim, d_lm)
         self.n_queries = n_queries
@@ -203,11 +192,6 @@ class BLIP2Bridge(nn.Module):
         return q  
 
 class GPT_Caption(nn.Module):
-    """
-    - patch_tokens : (B, N_img, enc_dim) venant de CLIP (gelé)
-    - Bridge BLIP-2 (Q-Former light) -> M pseudo-tokens image en dim n_embd
-    - NanoGPT (gelé) prend [image_prefix, texte] via embeddings + wpe
-    """
 
     def __init__(
         self,
@@ -331,7 +315,6 @@ class GPT_Caption(nn.Module):
         num_nodecay_params = sum(p.numel() for p in nodecay_params)
         print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
         print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
-        # create AdamW optimizer and use the fused version if available
         fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
         use_fused = fused_available and 'cuda' in device
         print(f"using fused AdamW:{use_fused}")
@@ -346,44 +329,21 @@ class GPT_Caption(nn.Module):
 
 
 def pool_clip_197_to_33_avg_with_cls(tokens_197: torch.Tensor) -> torch.Tensor:
-    """
-    tokens_197 : (B, L, D) = [CLS] + N patches, avec N = h*w (grille carrée)
-    return     : (B, 33, D) = [CLS] + 32 régions poolées (4x8)
-    """
+
     B, L, D = tokens_197.shape
 
-    # 1) séparer CLS et patches
-    cls = tokens_197[:, :1, :]            # (B, 1, D)
-    patches = tokens_197[:, 1:, :]        # (B, N, D)
+    cls = tokens_197[:, :1, :]            
+    patches = tokens_197[:, 1:, :]   
     N = patches.size(1)
-
-    # 2) retrouver la taille de la grille (supposée carrée)
     side = int(round(N ** 0.5))
     assert side * side == N, f"Expected square grid, got N={N}"
-
-    # 3) remettre en (B, D, H, W)
-    patches = patches.view(B, side, side, D)   # (B, H, W, D)
-    patches = patches.permute(0, 3, 1, 2)      # (B, D, H, W)
-
-    # 4) pooling adaptatif vers 4x8 = 32 régions
-    pooled = F.adaptive_avg_pool2d(patches, (4, 8))  # (B, D, 4, 8)
-    pooled = pooled.view(B, D, 32).permute(0, 2, 1)  # (B, 32, D)
-
-    # 5) concat CLS + pooled
+    patches = patches.view(B, side, side, D)   
+    patches = patches.permute(0, 3, 1, 2)      
+    pooled = F.adaptive_avg_pool2d(patches, (4, 8))  
+    pooled = pooled.view(B, D, 32).permute(0, 2, 1)  
     z = torch.cat([cls, pooled], dim=1)  # (B, 33, D)
     z = F.normalize(z, dim=-1)
-
     return z
-
-def pool_clip_197_to_cls(tokens_197: torch.Tensor) -> torch.Tensor:
-    """
-    tokens_197 : (B, L, D) = [CLS] + N patches
-    return     : (B, 1, D) = uniquement le CLS normalisé
-    """
-    B, L, D = tokens_197.shape
-
-    # 1) garder uniquement le CLS
-    cls = tokens_197[:, :1, :]  # (B, 1, D)
 
     # 2) normaliser
     z = F.normalize(cls, dim=-1)  # (B, 1, D)
