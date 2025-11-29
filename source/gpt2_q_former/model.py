@@ -172,19 +172,17 @@ class GPT_Caption(nn.Module):
     def __init__(
         self,
         enc_dim: int,
-        lm: nn.Module,         
-        custom_ckpt: str,
+        lm: nn.Module,     
         m_vis_tokens: int = 8,
         use_cls_only: bool = False,
         freeze_lm: bool = True,
     ):
         super().__init__()
         self.use_cls_only = use_cls_only
-
+        self.gpt = lm
         cfg = self.gpt.config
         self.d = cfg.n_embd
         self.block_size = cfg.block_size
-
         self.bridge = BLIP2Bridge(
             enc_dim=enc_dim,
             d_lm=self.d,
@@ -193,10 +191,9 @@ class GPT_Caption(nn.Module):
             n_layers=2,
             drop=0.1,
         )
-
         self.wte = self.gpt.transformer.wte
         self.wpe = self.gpt.transformer.wpe
-
+        
         if freeze_lm:
             for p in self.gpt.parameters():
                 p.requires_grad_(False)
@@ -204,7 +201,6 @@ class GPT_Caption(nn.Module):
             p.requires_grad_(True)
 
     def _decode_transformer(self, full_embeds):
-        """Passe les embeddings (B, L, d) dans les blocs GPT."""
         x = full_embeds
         for block in self.gpt.transformer.h:
             x = block(x)
@@ -212,29 +208,19 @@ class GPT_Caption(nn.Module):
         logits = self.gpt.lm_head(x)
         return logits
 
-    def forward(self, patch_tokens, input_ids, labels=None):
-        """
-        patch_tokens : (B, N_img, enc_dim)
-        input_ids    : (B, T_txt)
-        labels       : (B, T_txt) (-100 sur pads)
-        """
+    def forward(self, patch_tokens, input_ids, labels=None): 
         B, T_txt = input_ids.shape
         device = input_ids.device
-
         if patch_tokens.dim() == 2:
             patch_tokens = patch_tokens.unsqueeze(1)
         B_img, N_raw, D_enc = patch_tokens.shape
         assert B_img == B, "batch size image != batch size texte"
-
         x_img = patch_tokens
         if self.use_cls_only:
             x_img = x_img[:, 0:1, :]
-
         img_embeds = self.bridge(x_img)
         M = img_embeds.size(1)
-
         txt_embeds = self.wte(input_ids)
-
         full_len = M + T_txt
         if full_len > self.block_size:
             cut_txt = self.block_size - M
@@ -244,41 +230,26 @@ class GPT_Caption(nn.Module):
                 labels = labels[:, :cut_txt]
             T_txt = cut_txt
             full_len = M + T_txt
-
-        # --- minimal positional fix ---
-        # 1) keep text at positions 0..T_txt-1, as in pretraining
         pos_txt = torch.arange(T_txt, device=device)
-        pos_txt_embeds = self.wpe(pos_txt).unsqueeze(0)      # (1, T_txt, d)
-
-        # 2) add position ONLY to text tokens
-        txt_embeds = txt_embeds + pos_txt_embeds             # (B, T_txt, d)
-
-        # 3) concatenate image prefix (no pos emb) + text
-        full_embeds = torch.cat([img_embeds, txt_embeds], dim=1)  # (B, M+T_txt, d)
+        pos_txt_embeds = self.wpe(pos_txt).unsqueeze(0)      
+        txt_embeds = txt_embeds + pos_txt_embeds     
+        full_embeds = torch.cat([img_embeds, txt_embeds], dim=1)  
 
         logits = self._decode_transformer(full_embeds)
-
-
         loss = None
         if labels is not None:
-            # logits_text : (B, T_txt, V), aligné avec labels : (B, T_txt)
-            logits_text = logits[:, M:M+T_txt, :]  # on ignore simplement les logits image
-
+            logits_text = logits[:, M:M+T_txt, :] 
             loss = F.cross_entropy(
                 logits_text.reshape(-1, logits_text.size(-1)),
                 labels.reshape(-1),
                 ignore_index=-100,
             )
-
-
         return logits, loss
 
     
     def configure_optimizers(self, weight_decay, learning_rate, device):
-        # start with all of the candidate parameters (that require grad)
         param_dict = {pn: p for pn, p in self.named_parameters()}
         param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
-        # create optim groups
         decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
         nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
         optim_groups = [
@@ -305,7 +276,6 @@ class GPT_Caption(nn.Module):
 def pool_clip_197_to_33_avg_with_cls(tokens_197: torch.Tensor) -> torch.Tensor:
 
     B, L, D = tokens_197.shape
-
     cls = tokens_197[:, :1, :]            
     patches = tokens_197[:, 1:, :]   
     N = patches.size(1)
@@ -317,9 +287,4 @@ def pool_clip_197_to_33_avg_with_cls(tokens_197: torch.Tensor) -> torch.Tensor:
     pooled = pooled.view(B, D, 32).permute(0, 2, 1)  
     z = torch.cat([cls, pooled], dim=1)  # (B, 33, D)
     z = F.normalize(z, dim=-1)
-    return z
-
-    # 2) normaliser
-    z = F.normalize(cls, dim=-1)  # (B, 1, D)
-
     return z
