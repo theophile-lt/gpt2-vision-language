@@ -6,7 +6,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 import csv, time
 from torch.utils.data import DataLoader
-from model_BLIP import GPTConfig, GPT_previous, GPT_Caption
+from model_BLIP import GPTConfig, GPT_previous, GPT_Caption, pool_clip_197_to_33_avg_with_cls
 from data import CocoClipFullTokensDataset, evaluate_cider
 import tiktoken
 
@@ -231,6 +231,7 @@ def run_validation_and_logging(step, last_step):
             z = z.to(device)
             labels = y.clone()
             labels = labels.masked_fill(~m, -100)
+            z = pool_clip_197_to_33_avg_with_cls(z)
             with torch.autocast(device_type=device_type, dtype=amp_dtype):
                 logits, loss = model(z, x, labels=labels)
             val_loss_accum += loss.detach()
@@ -303,6 +304,7 @@ for step in range(start_step, max_steps) :
         z = z.to(device)
         labels = y.clone()
         labels = labels.masked_fill(~m, -100)
+        z = pool_clip_197_to_33_avg_with_cls(z)
         with torch.autocast(device_type=device_type, dtype=amp_dtype):
             logits, loss = model(z, x, labels=labels)
 
