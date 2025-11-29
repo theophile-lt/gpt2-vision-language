@@ -53,8 +53,8 @@ enc = tiktoken.get_encoding("gpt2")
 
 
 total_batch_size = 524288  
-B=128 #Batch_size
-T=32  #Sequence length for text
+B=128 # Batch_size
+T=32  # Sequence length for text
 assert total_batch_size % (B*T*ddp_world_size) == 0, 'make sure total_batch_size is divisible by B*T*ddp_world_size'
 grad_accum_steps = total_batch_size//(B*T*ddp_world_size)
 if master_process :
@@ -146,55 +146,132 @@ def get_lr(it) : # Cosine decay with warmup
 
 optimizer = raw_model.configure_optimizers(weight_decay=0.1, learning_rate=max_lr, device=device_type)
 
-# --- LOGS & CHECKPOINTS ------------
+# Logs and checkpoints
 log_dir = os.environ.get("LOG_DIR", "log")
 if master_process:
     print(f"[logs] writing to: {os.path.abspath(log_dir)}")
 os.makedirs(log_dir, exist_ok=True)
 
-# un petit log texte si tu veux continuer d’y écrire
 log_file = os.path.join(log_dir, "log.txt")
 if not os.path.exists(log_file):
     with open(log_file, "w") as f:
         pass
 
-# timestamp pour nommer proprement CSV/XLSX et un dossier de checkpoints isolé
 ts = time.strftime("%Y%m%d_%H%M%S")
 csv_log = os.path.join(log_dir, f"train_{ts}.csv")
 avg_dt = None
 last_val_loss = None
 
-# entête CSV une seule fois (maître uniquement)
 if master_process and not os.path.exists(csv_log):
     with open(csv_log, "w", newline="") as f:
         csv.writer(f).writerow(
             ["time","phase","step","loss","lr","grad_norm","dt_ms","tok_per_s","hellaswag_acc"]
         )
 
-# dossier de checkpoints
-CKPT_DIR = os.path.join(log_dir, "ckpts")  # dossier fixe pour reprendre
+CKPT_DIR = os.path.join(log_dir, "ckpts")  
 if master_process:
     os.makedirs(CKPT_DIR, exist_ok=True)
 
-best_val = float("inf")  # pour sauver le meilleur modèle
+best_val = float("inf")
 best_step = 0
 best_path = os.path.join(CKPT_DIR, "model_best.pt")
-SAVE_EVERY = 2500        # checkpoint périodique (ajuste si tu veux)
-
-
-# --- Auto-resume depuis le dernier checkpoint "rolling" s'il existe ---
+SAVE_EVERY = 2500        
 last_path = os.path.join(CKPT_DIR, "model_last.pt")
 start_step = 0
-if master_process:
-    print(f"[ckpt] rolling path: {os.path.abspath(last_path)}")
 
-if os.path.isfile(last_path):
-    ckpt = torch.load(last_path, map_location=device)
-    raw_model.load_state_dict(ckpt["model"])
-    optimizer.load_state_dict(ckpt["optimizer"])
-    start_step = int(ckpt.get("step", 0)) + 1
+
+def save_rolling_checkpoint(step, val_loss):
+    if not master_process:
+        return
+    tmp_path = os.path.join(CKPT_DIR, f".model_last_step_{step:06d}.tmp")
+    checkpoint = {
+        "model": raw_model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "config": getattr(raw_model, "config", None),
+        "step": step,
+        "val_loss": float(val_loss),
+        "ddp_world_size": ddp_world_size,
+        "ts": ts,
+    }
+    torch.save(checkpoint, tmp_path)
+    os.replace(tmp_path, last_path)
+    print(f"[ckpt] rolling last: {last_path}")
+
+def save_best_checkpoint(step, val_loss):
+    global best_val, best_step
+    if not master_process:
+        return
+    if val_loss < best_val:
+        best_val = val_loss
+        best_step = step
+        checkpoint = {
+            "model": raw_model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "config": getattr(raw_model, "config", None),
+            "step": step,
+            "val_loss": best_val,
+            "ddp_world_size": ddp_world_size,
+            "ts": ts,
+        }
+        torch.save(checkpoint, best_path)
+        print(f"[ckpt] best (val_loss={best_val:.4f}): {best_path}")
+
+def run_validation_and_logging(step, last_step):
+    global last_val_loss
+    model.eval()
+    with torch.no_grad():
+        val_loss_accum = torch.zeros(1, device=device)
+        last_val_loss = val_loss_accum.item()
+        val_loss_steps = 20
+        for i, (x, y, m, z) in enumerate(val_loader):
+            if i >= val_loss_steps:
+                break
+            x = x.to(device)
+            y = y.to(device)
+            m = m.to(device)
+            z = z.to(device)
+            labels = y.clone()
+            labels = labels.masked_fill(~m, -100)
+            with torch.autocast(device_type=device_type, dtype=amp_dtype):
+                logits, loss = model(z, x, labels=labels)
+            val_loss_accum += loss.detach()
+        val_loss_accum /= val_loss_steps
+    if ddp:
+        dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
+    val_loss = val_loss_accum.item()
+    last_val_loss = val_loss 
     if master_process:
-        print(f"[ckpt] resumed from {last_path} at step {start_step}")
+        print(f"validation loss: {val_loss:.4f}")
+        with open(csv_log, "a", newline="") as f:
+            csv.writer(f).writerow([
+                time.strftime("%Y-%m-%d %H:%M:%S"), "val", step,
+                f"{val_loss:.6f}", "", "", "", "", ""
+            ])
+        if step > 0 and (step % SAVE_EVERY == 0 or last_step):
+            save_rolling_checkpoint(step, val_loss)
+        save_best_checkpoint(step, val_loss)
+        try:
+            cider_score = evaluate_cider(
+                raw_model,
+                device,
+                enc,
+                COCO_ROOT,
+                CLIP_FULL_DIR,
+                max_samples=500,
+                max_new_tokens=24,
+            )
+            print(f"[CIDEr] step {step}: {cider_score:.4f}")
+            with open(csv_log, "a", newline="") as f:
+                csv.writer(f).writerow([
+                    time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "cider",
+                    step,
+                    "", "", "", "", "", f"{cider_score:.6f}",
+                ])
+        except Exception as e:
+            print(f"[CIDEr] evaluation failed at step {step}: {e}")
+    return val_loss
+
 
 
 if ddp:
@@ -207,105 +284,10 @@ for step in range(start_step, max_steps) :
     t0=time.time()
     last_step = (step == max_steps -1)
 
-    if step % 20 == 0 or last_step :
-        model.eval()
-        with torch.no_grad():
-            val_loss_accum = torch.zeros(1, device=device)
-            last_val_loss = val_loss_accum.item()
-            val_loss_steps = 20
-            for i, (x, y, m, z) in enumerate(val_loader):
-                if i >= val_loss_steps:
-                    break
-
-                x = x.to(device)
-                y = y.to(device)
-                m = m.to(device)
-                z = z.to(device)
-
-                # build labels with -100 on pads
-                labels = y.clone()
-                labels = labels.masked_fill(~m, -100)
-
-                with torch.autocast(device_type=device_type, dtype=amp_dtype):
-                    logits, loss = model(z, x, labels=labels)
-
-                val_loss_accum += loss.detach()
-
-            val_loss_accum /= val_loss_steps
-
-        if ddp:
-            dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
-
-        if master_process:
-            print(f"validation loss: {val_loss_accum.item():.4f}")
-            last_val_loss = val_loss_accum.item()
-
-            #-----------LOGS----------------
-            # --- CSV: ligne 'val' ---
-            with open(csv_log, "a", newline="") as f:
-                csv.writer(f).writerow([
-                    time.strftime("%Y-%m-%d %H:%M:%S"), "val", step,
-                    f"{val_loss_accum.item():.6f}", "", "", "", "", ""
-                ])
-
-            # --- Checkpoints périodiques & 'best' ---
-            # 1) périodique (rolling, avec optimizer) : réécrit model_last.pt à chaque fois
-            if step > 0 and (step % SAVE_EVERY == 0 or last_step):
-                tmp_path = os.path.join(CKPT_DIR, f".model_last_step_{step:06d}.tmp")
-                checkpoint = {
-                    "model": raw_model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "config": getattr(raw_model, "config", None),
-                    "step": step,
-                    "val_loss": float(val_loss_accum.item()),
-                    "ddp_world_size": ddp_world_size,
-                    "ts": ts,
-                }
-                torch.save(checkpoint, tmp_path)
-                # rename atomique pour éviter un last corrompu en cas de kill au milieu de l'écriture
-                os.replace(tmp_path, last_path)
-                print(f"[ckpt] rolling last: {last_path}")
-
-            # 2) 'best' selon val_loss
-            if val_loss_accum.item() < best_val:
-                best_val = val_loss_accum.item()
-                best_path = os.path.join(CKPT_DIR, "model_best.pt")
-                best_step=step
-                checkpoint = {
-                    "model": raw_model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "config": getattr(raw_model, "config", None),
-                    "step": step,
-                    "val_loss": best_val,
-                    "ddp_world_size": ddp_world_size,
-                    "ts": ts,
-                }
-                torch.save(checkpoint, best_path)
-                print(f"[ckpt] best (val_loss={best_val:.4f}): {best_path}")
-
-            # ----------------- CIDEr eval every 50 steps -----------------
-            if master_process and ((step % 10000 == 0 and step!=0) or last_step):
-                try:
-                    cider_score = evaluate_cider( raw_model, device, enc, COCO_ROOT,  CLIP_FULL_DIR, max_samples=50, max_new_tokens=24,)
-                    print(f"[CIDEr] step {step}: {cider_score:.4f}")
-
-                    # log CSV (phase 'cider')
-                    with open(csv_log, "a", newline="") as f:
-                        csv.writer(f).writerow([
-                            time.strftime("%Y-%m-%d %H:%M:%S"),
-                            "cider",
-                            step,
-                            "", "", "", "", "", f"{cider_score:.6f}",
-                        ])
-                except Exception as e:
-                    print(f"[CIDEr] evaluation failed at step {step}: {e}")
-    # -------------------------------------------------------------
-
-            #-------------------END LOGs
-
-
-
-
+    # Evaluation
+    if step % 20 == 0 or last_step:
+        run_validation_and_logging(step, last_step)
+        
     # Training
     model.train()
     optimizer.zero_grad()
@@ -337,7 +319,8 @@ for step in range(start_step, max_steps) :
     for param_group in optimizer.param_groups :
         param_group['lr'] = lr
     optimizer.step()
-    
+
+    # Logs and time
     if device_type == "cuda":
         torch.cuda.synchronize()
     t1=time.time()
@@ -353,31 +336,24 @@ for step in range(start_step, max_steps) :
     eta_h = int(eta_sec // 3600)
     eta_m = int((eta_sec % 3600) // 60)
     eta_s = int(eta_sec % 60)
-    #time diff in millidseconds
     if master_process:
         val_str = f"{last_val_loss:.4f}" if last_val_loss is not None else "n/a"
         eta_str = f"{eta_h:02d}h{eta_m:02d}m{eta_s:02d}s" if avg_dt is not None else "N/A"
         print(f"step {step:5d} | loss: {loss_accum.item():.6f} | val_loss: {val_str} | lr {lr:.4e} | norm: {norm.item():.4f} | dt: {dt*1000:.2f}ms | tok/sec: {tokens_per_sec:.2f} | | ETA: {eta_str}")
-        
-        #---------------LOGS-----------------------------------
-        # --- CSV: ligne 'train' ---
         with open(csv_log, "a", newline="") as f:
             csv.writer(f).writerow([
                 time.strftime("%Y-%m-%d %H:%M:%S"), "train", step,
                 f"{loss_accum.item():.6f}", f"{lr:.6e}", f"{norm.item():.4f}",
                 f"{dt*1000:.2f}", f"{tokens_per_sec:.2f}", ""
             ])
-        #----------------------------------------
 
-# --- Checkpoint final + conversion CSV→XLSX ---
+
+# Final checkpoint
 if master_process:
-    # 1) ne pas re-sauver, juste rappeler le best
     try:
         print(f"[ckpt] best: {best_path}  | Best step: {best_step}  | Best val loss: {best_val:.4f}")
     except NameError:
-        print("[ckpt] attention: aucun 'best' n'a été enregistré (best_path/best_step/best_val non définis).")
-
-    # 2) CSV -> XLSX (pour Excel)
+        print("best_path/best_step/best_val not definite")
     try:
         import pandas as pd
         xlsx_path = csv_log.replace(".csv", ".xlsx")
@@ -386,11 +362,10 @@ if master_process:
             df.to_excel(writer, index=False, sheet_name="metrics")
         print(f"[excel] écrit: {xlsx_path}")
     except Exception as e:
-        print(f"[excel] échec conversion CSV→XLSX: {e}")
+        print(f"fail conversion to xlsx")
 
 
 
 
 if ddp:
     destroy_process_group()
-    print(">", decoded)
