@@ -287,6 +287,6 @@ def pool_clip_197_to_33_avg_with_cls(tokens_197: torch.Tensor) -> torch.Tensor:
     patches = patches.permute(0, 3, 1, 2)      
     pooled = F.adaptive_avg_pool2d(patches, (4, 8))  
     pooled = pooled.view(B, D, 32).permute(0, 2, 1)  
-    z = torch.cat([cls, pooled], dim=1)  # (B, 33, D)
+    z = torch.cat([cls, pooled], dim=1)
     z = F.normalize(z, dim=-1)
     return z
