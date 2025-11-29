@@ -1,4 +1,4 @@
-
+import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import os
@@ -110,7 +110,7 @@ def evaluate_cider(
         x = torch.tensor(prompt_ids, dtype=torch.long, device=device)[None, :]
         for _ in range(max_new_tokens):
             with torch.no_grad():
-                logits, _ = model(x, z=z)
+                logits, _ = model(z, x)
                 logits_last = logits[:, -1, :] / 0.8
                 probs = F.softmax(logits_last, dim=-1)
 
