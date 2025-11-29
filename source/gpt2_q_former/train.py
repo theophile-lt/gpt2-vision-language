@@ -66,7 +66,6 @@ if master_process :
 INIT_CKPT = "/Data/theophile.laurent/datasets/gpt2_runs/20251026_101905/log/ckpts/model_best.pt"
 # COCO+CLIP caption loaders
 COCO_ROOT = "/Data/theophile.laurent/datasets/coco2017"
-CLIP_FEATS_DIR = "/Data/theophile.laurent/datasets/clip_feats"
 CLIP_FULL_DIR  = "/Data/theophile.laurent/datasets/clip_feats_full"
 
 
@@ -102,7 +101,7 @@ config = GPTConfig(vocab_size=50304, block_size=1024)
 lm = GPT_previous(config)
 
 ckpt = torch.load(INIT_CKPT, map_location="cpu", weights_only=False)
-lm.load_state_dict(ckpt["model"], strict=False
+lm.load_state_dict(ckpt["model"], strict=False)
 
 model = GPT_Caption(
     enc_dim=768,            
@@ -362,7 +361,7 @@ if master_process:
             df.to_excel(writer, index=False, sheet_name="metrics")
         print(f"[excel] écrit: {xlsx_path}")
     except Exception as e:
-        print(f"fail conversion to xlsx")
+        print(print(f"fail conversion to xlsx: {e}"))
 
 
 
