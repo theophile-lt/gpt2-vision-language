@@ -2,9 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dataclasses import dataclass
-import tiktoken
-import inspect
-import torch.nn.functional as F 
+import inspect 
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, config):
@@ -64,6 +62,8 @@ class GPTConfig:
     n_embd: int = 768
 
 
+# We take directly our gpt2 decoder without modifying it 
+
 class GPT_previous(nn.Module):
     def __init__(self, config: GPTConfig):
         super().__init__()
@@ -110,30 +110,6 @@ class GPT_previous(nn.Module):
             )
         return logits, loss
 
-def load_nanogpt_from_ckpt(ckpt_path: str, map_location="cpu") -> GPT_previous:
-    # This is your own NanoGPT checkpoint; we allow full unpickling
-    raw = torch.load(ckpt_path, map_location=map_location, weights_only=False)
-
-    if isinstance(raw, dict) and "model" in raw and "config" in raw:
-        sd = raw["model"]
-        cfg_raw = raw["config"]
-        if isinstance(cfg_raw, GPTConfig):
-            cfg = cfg_raw
-        elif isinstance(cfg_raw, dict):
-            cfg = GPTConfig(**cfg_raw)
-        else:
-            cfg = GPTConfig(vocab_size=50304)
-        print(f"[NanoGPT] Loaded checkpoint {ckpt_path} "
-              f"(step={raw.get('step','?')}, val_loss={raw.get('val_loss','?')})")
-    else:
-        sd = raw
-        cfg = GPTConfig(vocab_size=50304)
-        print(f"[NanoGPT] Loaded flat state_dict from {ckpt_path}")
-
-    gpt = GPT_previous(cfg)
-    # <<< HERE is the key change
-    gpt.load_state_dict(sd, strict=False)
-    return gpt
 
 class QFormerLayer(nn.Module):
     
@@ -196,17 +172,15 @@ class GPT_Caption(nn.Module):
     def __init__(
         self,
         enc_dim: int,
-        tokenizer,          
+        lm: nn.Module,         
         custom_ckpt: str,
         m_vis_tokens: int = 8,
         use_cls_only: bool = False,
         freeze_lm: bool = True,
     ):
         super().__init__()
-        self.tokenizer = tokenizer
         self.use_cls_only = use_cls_only
 
-        self.gpt = load_nanogpt_from_ckpt(custom_ckpt)
         cfg = self.gpt.config
         self.d = cfg.n_embd
         self.block_size = cfg.block_size
