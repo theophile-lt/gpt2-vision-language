@@ -171,7 +171,8 @@ Training for a single epoch (~3 hours) with AdamW and a cosine learning rate sch
 
 ### *Optimization*
 
-For the captioning experiments, I train for a single epoch using AdamW (weight decay 0.1) with a cosine learning rate schedule that linearly warms up over the first 20 steps from $10^{-3}$ and then decays down to $10^{-5}$. I use micro-batches of 128 sequences with text length 32 and no gradient accumulation ($\text{grad\_accum\_steps}=1$), giving an effective batch size of $128 \times 32 \times \text{world\_size}$ tokens. Training is done in mixed precision (bfloat16 on GPU when available), with gradients clipped to a global norm of 1.0.
+For the captioning experiments, I train for a single epoch using AdamW (weight decay 0.1) with a cosine learning rate schedule that warms up over the first 20 steps from 1e-3 and then decays to 1e-5. I use micro-batches of 128 sequences with text length 32 and no gradient accumulation (`grad_accum_steps = 1`), giving an effective batch size of `128 × 32 × world_size` tokens. Training is done in mixed precision (bfloat16 on GPU when available), with gradients clipped to a global norm of 1.0.
+
 
 
 ### **Validation loss comparison**  
