@@ -128,7 +128,7 @@ Blocks highlighted in blue denote frozen parameters, whereas blocks in red corre
 
 A set of learnable queries attends to frozen CLIP features, producing a compact set of multimodal embeddings projected into GPT-2’s embedding space.
 
-- **BLIP-2 reference:**  
+- **BLIP-2 reference architecture:**  
 
   <p align="center">
     <img src="images/BLIP2.png" width="60%" />
