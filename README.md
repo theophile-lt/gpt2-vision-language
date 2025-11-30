@@ -71,7 +71,7 @@ I reuse most architectural hyperparameters from the GPT-2 paper [ref], and adopt
 - **Vocabulary:** Tiktoken tokenizer, $\approx 50\text{k}$ tokens  
 - **Effective batch size:** $524{,}288$ tokens/step $= 16 \times 1024 \times 32$ (GPT-3)  
 - **Optimizer:** AdamW with $\beta = (0.9,\ 0.95)$, weight decay $= 0.1$, gradient clipping $= 1$ (GPT-3)  
-- **Learning-rate schedule:** cosine decay $(6\times10^{-4} \rightarrow 6\times10^{-5})$ with $715$ warmup steps (GPT-3)
+- **Learning-rate schedule:** cosine decay $(6\times10^{-4} \rightarrow 6\times10^{-5})$ (GPT-3), with 715 warmup steps
 
 
 
