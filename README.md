@@ -40,7 +40,7 @@ More details about the architectures, results, and method are provided below.
 
 ### **Image captioning (COCO 2017)**
 - Imported a **frozen CLIP ViT-L/14** encoder.  
-- Kept both CLIP and GPT-2 **frozen**, training only small bridge modules.  
+- Kept both CLIP and the built GPT-2 **frozen**, training only small bridge modules.  
 - Reduced CLIP’s 257 tokens (1 [CLS] + 256 patches) to a compact representation via **average pooling**.  
 - Explored three lightweight architectures:
   1. **Linear projection**
@@ -57,10 +57,22 @@ Following Karpathy’s 10-lecture series "Zero to Hero" that can be found with h
 After two days of training on FineWeb-Edu (10B tokens), the model achieved 30% HellaSwag accuracy.  
 
 ### Architecture  
+The architecture is the same as in the GPT-2 paper [ref].
 
 <p align="center">
   <img src="images/GPT-2.png" width="20%" />
 </p>
+
+### Hyperparameters  
+I reuse most architectural hyperparameters from the GPT-2 paper [ref], and adopt the optimization setup from the GPT-3 paper [ref]:
+
+- **Model size:** $12$ layers, $12$ attention heads, hidden size $768$ (GPT-2)  
+- **Context length:** $1024$ tokens (GPT-2)  
+- **Vocabulary:** Tiktoken tokenizer, $\approx 50\text{k}$ tokens  
+- **Effective batch size:** $524{,}288$ tokens/step $= 16 \times 1024 \times 32$ (GPT-3)  
+- **Optimizer:** AdamW with $\beta = (0.9,\ 0.95)$, weight decay $= 0.1$, gradient clipping $= 1$ (GPT-3)  
+- **Learning-rate schedule:** cosine decay $(6\times10^{-4} \rightarrow 6\times10^{-5})$ with $715$ warmup steps (GPT-3)
+
 
 
 ### Training curves  
