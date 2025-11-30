@@ -169,6 +169,10 @@ The Q-Former-style bridge follows the idea of BLIP-2 [Li et al., 2023](#ref-blip
 
 Training for a single epoch (~3 hours) with AdamW and a cosine learning rate schedule results in stable validation loss curves across all three bridges.
 
+### *Optimization*
+
+For the captioning experiments, I train for a single epoch using AdamW (weight decay 0.1) with a cosine learning rate schedule that linearly warms up over the first 20 steps from $10^{-3}$ and then decays down to $10^{-5}$. I use micro-batches of 128 sequences with text length 32 and no gradient accumulation ($\text{grad\_accum\_steps}=1$), giving an effective batch size of $128 \times 32 \times \text{world\_size}$ tokens. Training is done in mixed precision (bfloat16 on GPU when available), with gradients clipped to a global norm of 1.0.
+
 ### **Validation loss comparison**  
 
 <p align="center">
