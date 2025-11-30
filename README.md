@@ -11,7 +11,7 @@
 
 ## Introduction
 
-I present in this repository an independent project that I developed in parallel with my IASD master coursework.
+I present in this repository an independent project that I developed in parallel with my Master 2 coursework.
 
 This projects aims to:
 
