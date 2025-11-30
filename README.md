@@ -230,7 +230,7 @@ This project is conducted by **[Gabriel Lenain](https://github.com/gabriellenain
 
 <a name="ref-gpt2"></a>
 - Radford et al. (2019), *Language Models are Unsupervised Multitask Learners* (GPT-2),  
-  OpenAI Technical Report
+  [arXiv:1901.00502](https://arxiv.org/abs/1901.00502)
 
 <a name="ref-cider"></a>
 - Vedantam et al. (2015), *CIDEr: Consensus-based Image Description Evaluation*,  
