@@ -32,7 +32,7 @@ More details about the architectures, results, and method are provided below.
 ## High-Level Overview
 
 ### **Pre-training**
-- Implemented a **124M-parameter GPT-2 decoder** from scratch, inspired by Karpathy’s 10-lecture series.  
+- Implemented a **124M-parameter GPT-2 decoder** from scratch, inspired by Andrej Karpathy’s 10-lecture series.  
 - Trained on **FineWeb-Edu (~10B tokens)**.  
 - Used **FlashAttention**, **mixed precision**, and **gradient accumulation** (GPT-3-style effective batch size).  
 - Reached **≈30% accuracy on HellaSwag** after ~2 days of training on a single GPU.
