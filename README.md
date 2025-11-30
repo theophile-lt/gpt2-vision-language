@@ -23,7 +23,7 @@ We wanted to explore large-scale pre-training, understand the challenges of mult
 All experiments were run on **a single NVIDIA RTX A5000 GPU**.
 
 We obtained the following results:  
-— Built a **124M-parameter GPT-2 decoder**, following Andrej Karpathy’s 10-lecture series, trained it on **FineWeb-Edu (10B tokens)**, and reached **31% HellaSwag accuracy** after ~2 days on our GPU.  
+— Built a **124M-parameter GPT-2 decoder**, following Andrej Karpathy’s 10-lecture series, trained it on **FineWeb-Edu (10B tokens)**, and reached **30% HellaSwag accuracy** after ~2 days on our GPU.  
 — Fine-tuned the model on **COCO 2017** for image captioning; after  **3 hours of training (1 epoch)** for each architecture, captions were already coherent with meaningful semantic content.  
 More details about the architectures, results, and installation are provided below.
 
@@ -35,7 +35,7 @@ More details about the architectures, results, and installation are provided bel
 - Implemented a **124M-parameter GPT-2 decoder** from scratch, inspired by Karpathy’s 10-lecture series.  
 - Trained on **FineWeb-Edu (~10B tokens)**.  
 - Used **FlashAttention**, **mixed precision**, and **gradient accumulation** (GPT-3-style effective batch size).  
-- Reached **≈31% accuracy on HellaSwag** after ~2 days of training on a single GPU.
+- Reached **≈30% accuracy on HellaSwag** after ~2 days of training on a single GPU.
 
 
 ### **Image captioning (COCO 2017)**
@@ -54,7 +54,7 @@ More details about the architectures, results, and installation are provided bel
 ## Part 1 — GPT-2 From Scratch
 
 Following Karpathy’s 10-lecture series "Zero to Hero" that can be found with https://karpathy.ai/, we reconstructed a 124M-parameter GPT-2 decoder entirely by hand and trained it efficiently using FlashAttention, mixed precision, and GPT-3-inspired hyperparameters with gradient accumulation.
-After two days of training on FineWeb-Edu (10B tokens), the model achieved 31% HellaSwag accuracy.  
+After two days of training on FineWeb-Edu (10B tokens), the model achieved 30% HellaSwag accuracy.  
 
 ### Architecture  
 
