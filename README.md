@@ -176,11 +176,9 @@ For fine-tuning on COCO, I use the following optimization setup:
 - **Sequence length:** $T = 32$  
 - **Gradient accumulation:** $1$ step (no accumulation)  
 - **Optimizer:** AdamW with weight decay $0.1$ and gradient clipping at $1.0$  
-- **Learning rate:** warmup over $40$ steps from $10^{-3}$ ($\approx 5\%$ of total steps, then cosine decay to $10^{-5}$  
+- **Learning rate:** warmup over $40$ steps from $10^{-3}$ ($\approx$ 5% of total steps, then cosine decay to $10^{-4}$  
 - **Precision:** mixed precision (bfloat16 on GPU)
-
-
-
+- 
 
 ### **Validation loss comparison**  
 
