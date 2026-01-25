@@ -191,8 +191,8 @@ For fine-tuning on COCO, we use the following optimization setup:
 
 | Model             | METEOR ↑        | CIDEr ↑   |
 |-------------------|-----------------|-----------|
-| Cross-Attention   | 0.334 ± 0.153   | 0.321     |
-| Linear Projection | 0.379 ± 0.139   | 0.419     |
+| Linear Projection | 0.334 ± 0.153   | 0.321     |
+| Cross-Attention   | 0.379 ± 0.139   | 0.419     |
 | **Q-Former**      | **0.412 ± 0.146** | **0.598** |
 
 </div>
